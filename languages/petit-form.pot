@@ -1,160 +1,236 @@
-# Petit Form — French translation
+# Petit Form translation template
 # Copyright (c) 2026 Emir Belkahia
 # License: MIT
 msgid ""
 msgstr ""
-"Project-Id-Version: Petit Form 0.1.0\n"
+"Project-Id-Version: Petit Form 0.2.2\n"
 "Report-Msgid-Bugs-To: https://github.com/emirbelkahia/petit-form/issues\n"
-"POT-Creation-Date: 2026-09-13 12:00+0200\n"
-"PO-Revision-Date: 2026-09-13 12:00+0200\n"
-"Last-Translator: Emir Belkahia\n"
-"Language-Team: French\n"
-"Language: fr_FR\n"
+"POT-Creation-Date: 2026-09-13 12:57+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-msgid "Send"
-msgstr "Envoyer"
-
-msgid "Thank you! Your message has been sent."
-msgstr "Merci ! Votre message a bien été envoyé."
-
-msgid "Missing required \"id\" attribute (PF-E1001)."
-msgstr "Attribut « id » manquant (PF-E1001)."
-
-msgid "No usable fields (PF-E1001)."
-msgstr "Aucun champ exploitable (PF-E1001)."
-
-msgid "Leave this field empty"
-msgstr "Laissez ce champ vide"
-
-msgid "Sorry, your message could not be sent. Please try again."
-msgstr "Désolé, votre message n'a pas pu être envoyé. Veuillez réessayer."
-
-msgid "A required field is missing."
-msgstr "Un champ obligatoire est manquant."
-
-msgid "The email address looks invalid."
-msgstr "L'adresse e-mail semble invalide."
-
-msgid "The phone number looks invalid."
-msgstr "Le numéro de téléphone semble invalide."
-
-msgid "The form was submitted too quickly. Please try again."
-msgstr "Le formulaire a été envoyé trop vite. Veuillez réessayer."
-
-msgid "The form has expired. Please reload the page and try again."
-msgstr "Le formulaire a expiré. Rechargez la page et réessayez."
-
-msgid "Too many attempts. Please try again later."
-msgstr "Trop de tentatives. Réessayez plus tard."
-
-msgid "The anti-spam check is missing. Please reload the page."
-msgstr "La vérification anti-spam est absente. Rechargez la page."
-
-msgid "The anti-spam check failed. Please try again."
-msgstr "La vérification anti-spam a échoué. Veuillez réessayer."
-
-msgid "[%1$s] New lead on %2$s"
-msgstr "[%1$s] Nouveau lead sur %2$s"
-
-msgid "Lead #%d — stored in WordPress (Leads menu)."
-msgstr "Lead n°%d — enregistré dans WordPress (menu Leads)."
-
+#: includes/admin.php:18 includes/admin.php:19 includes/admin.php:77
 msgid "Leads"
-msgstr "Leads"
+msgstr ""
 
+#: includes/admin.php:28 includes/admin.php:252
 msgid "Petit Form settings"
-msgstr "Réglages Petit Form"
+msgstr ""
 
+#: includes/admin.php:29
 msgid "Settings"
-msgstr "Réglages"
+msgstr ""
 
+#: includes/admin.php:60 includes/admin.php:172 includes/admin.php:229
 msgid "Access denied."
-msgstr "Accès refusé."
+msgstr ""
 
+#: includes/admin.php:78
 msgid "Export CSV"
-msgstr "Exporter en CSV"
+msgstr ""
 
+#: includes/admin.php:84
 msgid "All forms"
-msgstr "Tous les formulaires"
+msgstr ""
 
+#: includes/admin.php:89
 msgid "Filter"
-msgstr "Filtrer"
+msgstr ""
 
+#: includes/admin.php:90
+#, php-format
 msgid "%d leads"
-msgstr "%d leads"
+msgstr ""
 
-msgid "Date (UTC)"
-msgstr "Date (UTC)"
+#: includes/admin.php:97
+msgid "Date (site timezone)"
+msgstr ""
 
+#: includes/admin.php:98
 msgid "Form"
-msgstr "Formulaire"
+msgstr ""
 
+#: includes/admin.php:99
 msgid "Data"
-msgstr "Données"
+msgstr ""
 
+#: includes/admin.php:105
 msgid "No leads yet."
-msgstr "Aucun lead pour le moment."
+msgstr ""
 
+#: includes/admin.php:119
+msgid ""
+"Notification delivery stopped after three attempts. Check the PHP error log."
+msgstr ""
+
+#: includes/admin.php:120
+msgid "Notifications pending. Check WP-Cron if delivery is delayed."
+msgstr ""
+
+#: includes/admin.php:130
 msgid "Delete this lead permanently?"
-msgstr "Supprimer ce lead définitivement ?"
+msgstr ""
 
+#: includes/admin.php:130
 msgid "Delete"
-msgstr "Supprimer"
+msgstr ""
 
+#: includes/admin.php:175 includes/admin.php:233
 msgid "Invalid nonce (PF-E2001)."
-msgstr "Nonce invalide (PF-E2001)."
+msgstr ""
 
+#: includes/admin.php:257
 msgid "Notification email"
-msgstr "E-mail de notification"
+msgstr ""
 
-msgid "Leads are always stored in the database; this email is only a notification."
-msgstr "Les leads sont toujours enregistrés en base ; cet e-mail n'est qu'une notification."
+#: includes/admin.php:259
+msgid ""
+"Leads are always stored in the database; this email is only a notification."
+msgstr ""
 
+#: includes/admin.php:262
 msgid "Webhook URL"
-msgstr "URL du webhook"
+msgstr ""
 
+#: includes/admin.php:264
 msgid "Optional. Every new lead is POSTed there as JSON."
-msgstr "Optionnel. Chaque nouveau lead y est envoyé en JSON (POST)."
+msgstr ""
 
+#: includes/admin.php:267
 msgid "Webhook auth header"
-msgstr "En-tête d'authentification du webhook"
+msgstr ""
 
+#: includes/admin.php:274
 msgid "Cloudflare Turnstile"
-msgstr "Cloudflare Turnstile"
+msgstr ""
 
+#: includes/admin.php:276
 msgid "Site key"
-msgstr "Clé de site"
+msgstr ""
 
+#: includes/admin.php:277
 msgid "Secret key"
-msgstr "Clé secrète"
+msgstr ""
 
-msgid "Optional second anti-spam layer. Leave empty to stay on honeypot + time-trap + rate limiting."
-msgstr "Seconde couche anti-spam optionnelle. Laissez vide pour rester sur honeypot + temps minimum + limitation de débit."
+#: includes/admin.php:278
+msgid ""
+"Optional second anti-spam layer. Leave empty to stay on honeypot + time-trap "
+"+ rate limiting."
+msgstr ""
 
+#: includes/admin.php:282
 msgid "Rate limiting"
-msgstr "Limitation de débit"
+msgstr ""
 
-msgid "submissions per"
-msgstr "envois par"
+#: includes/admin.php:285
+msgid "locally valid attempts per"
+msgstr ""
 
+#: includes/admin.php:287
 msgid "seconds, per IP and per form."
-msgstr "secondes, par IP et par formulaire."
+msgstr ""
 
+#: includes/admin.php:291
 msgid "Minimum fill time"
-msgstr "Temps minimum de remplissage"
+msgstr ""
 
+#: includes/admin.php:293
 msgid "seconds. Faster submissions are rejected as bots."
-msgstr "secondes. Les envois plus rapides sont rejetés comme des bots."
+msgstr ""
 
+#: includes/admin.php:296
 msgid "Data on uninstall"
-msgstr "Données à la désinstallation"
+msgstr ""
 
+#: includes/admin.php:298
 msgid "Delete the leads table and all settings when the plugin is uninstalled."
-msgstr "Supprimer la table des leads et tous les réglages à la désinstallation du plugin."
+msgstr ""
 
+#: includes/admin.php:312
+msgid ""
+"Petit Form could not write to its leads table. Check database permissions "
+"and the PHP error log (PF-E3001/PF-E3002)."
+msgstr ""
+
+#: includes/admin.php:319
 msgid "Lead deleted."
-msgstr "Lead supprimé."
+msgstr ""
+
+#: includes/admin.php:321
+msgid "Lead not found (already deleted?)."
+msgstr ""
+
+#: includes/mail.php:32
+#, php-format
+msgid "[%1$s] New lead on %2$s"
+msgstr ""
+
+#: includes/mail.php:42
+#, php-format
+msgid "Lead #%d — stored in WordPress (Leads menu)."
+msgstr ""
+
+#: includes/render.php:31
+msgid "Send"
+msgstr ""
+
+#: includes/render.php:32
+msgid "Thank you! Your message has been sent."
+msgstr ""
+
+#: includes/render.php:42
+msgid "Missing required \"id\" attribute (PF-E1001)."
+msgstr ""
+
+#: includes/render.php:50
+msgid "No usable fields (PF-E1001)."
+msgstr ""
+
+#: includes/render.php:144
+msgid "Sorry, your message could not be sent. Please try again."
+msgstr ""
+
+#: includes/render.php:147
+msgid "A required field is missing."
+msgstr ""
+
+#: includes/render.php:148
+msgid "The email address looks invalid."
+msgstr ""
+
+#: includes/render.php:149
+msgid "The phone number looks invalid."
+msgstr ""
+
+#: includes/render.php:150
+msgid "A field is too long. Please shorten it."
+msgstr ""
+
+#: includes/render.php:152 includes/render.php:154
+msgid "The form has expired. Please reload the page and try again."
+msgstr ""
+
+#: includes/render.php:153
+msgid "The form was submitted too quickly. Please try again."
+msgstr ""
+
+#: includes/render.php:155
+msgid "Too many attempts. Please try again later."
+msgstr ""
+
+#: includes/render.php:156
+msgid "The anti-spam check is missing. Please reload the page."
+msgstr ""
+
+#: includes/render.php:157
+msgid "The anti-spam check failed. Please try again."
+msgstr ""
+
+#: includes/security.php:73
+msgid "Leave this field empty"
+msgstr ""

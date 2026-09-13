@@ -121,30 +121,39 @@ function petit_form_verify_traps( $post, $form_id ) {
 }
 
 /**
- * Per-IP + per-form rate limiting using transients. Default: 5 submissions
- * per hour. Returns true when allowed, WP_Error PF-E2005 when exceeded.
+ * Atomically admit a locally valid attempt in a fixed clock window.
+ * Direct SQL avoids transient eviction and stale object-cache counters.
+ * Expiry is part of the key; old rows are removed in bounded batches.
  *
  * @return true|WP_Error
  */
 function petit_form_rate_limit_check( $form_id ) {
-	// Default 10/hour: only validated submissions count, and French mobile
-	// carriers put hundreds of subscribers behind one CGNAT IPv4 — a shared
-	// antenna must not lock out legitimate visitors.
-	$max    = (int) get_option( 'petit_form_rate_max', 10 );
-	$window = (int) get_option( 'petit_form_rate_window', HOUR_IN_SECONDS );
-	// One bucket per (IP hash, form): hash the pair so neither part is truncated.
-	$key    = 'pf_rl_' . substr( hash_hmac( 'sha256', petit_form_ip_hash() . '|' . $form_id, wp_salt( 'nonce' ) ), 0, 32 );
+	global $wpdb;
+	$max    = max( 1, min( 100, (int) get_option( 'petit_form_rate_max', 10 ) ) );
+	$window = max( 60, min( DAY_IN_SECONDS, (int) get_option( 'petit_form_rate_window', HOUR_IN_SECONDS ) ) );
+	$now    = time();
+	$end    = ( (int) floor( $now / $window ) + 1 ) * $window;
+	$prefix = 'petit_form_rate_';
+	$key    = $prefix . sprintf( '%010d', $end ) . '_' . hash_hmac( 'sha256', petit_form_ip_hash() . '|' . $form_id, wp_salt( 'nonce' ) );
 
-	$count = get_transient( $key );
-	if ( false === $count ) {
-		set_transient( $key, 1, $window );
-		return true;
+	$wpdb->query( $wpdb->prepare(
+		"DELETE FROM {$wpdb->options} WHERE option_name >= %s AND option_name < %s LIMIT 100",
+		$prefix, $prefix . sprintf( '%010d', $now + 1 ) . '_'
+	) );
+	$insert = $wpdb->query( $wpdb->prepare(
+		"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, '0', 'no')", $key
+	) );
+	if ( false === $insert ) {
+		return new WP_Error( 'PF-E2009', 'Rate-limit storage unavailable.' );
 	}
-	if ( (int) $count >= $max ) {
-		return new WP_Error( 'PF-E2005', sprintf( 'Rate limit exceeded (%d/%d in %ds).', (int) $count + 1, $max, $window ) );
+	$admitted = $wpdb->query( $wpdb->prepare(
+		"UPDATE {$wpdb->options} SET option_value = CAST(option_value AS UNSIGNED) + 1 WHERE option_name = %s AND CAST(option_value AS UNSIGNED) < %d",
+		$key, $max
+	) );
+	if ( false === $admitted ) {
+		return new WP_Error( 'PF-E2009', 'Rate-limit storage unavailable.' );
 	}
-	set_transient( $key, (int) $count + 1, $window );
-	return true;
+	return $admitted ? true : new WP_Error( 'PF-E2005', 'Attempt limit reached for this window.' );
 }
 
 /**

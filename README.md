@@ -87,9 +87,11 @@ Error handling: every rejection carries a stable code (`PF-Exxxx`), shown to the
 | PF-E2006 | Turnstile token missing |
 | PF-E2007 | Turnstile rejected the visitor (or a 4xx from the API) |
 | PF-E2008 | Turnstile API unreachable/5xx — submission accepted (fail-open, logged) |
+| PF-E2009 | Rate-limit database operation failed |
 | PF-E3001 | Database insert failed |
 | PF-E3002 | Leads table creation failed (check DB user rights) |
 | PF-E4001 | Notification email failed |
+| PF-E4002 | Notification scheduling, data or progress failure |
 | PF-E4101 | Webhook delivery failed |
 
 Design decision: when the Turnstile API is unreachable, submissions are **accepted and logged** (fail-open). Losing a real lead costs more than a spam wave during a Cloudflare outage. The database remains the source of truth.

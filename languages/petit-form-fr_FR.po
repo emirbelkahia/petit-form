@@ -3,7 +3,7 @@
 # License: MIT
 msgid ""
 msgstr ""
-"Project-Id-Version: Petit Form 0.2.1\n"
+"Project-Id-Version: Petit Form 0.2.2\n"
 "Report-Msgid-Bugs-To: https://github.com/emirbelkahia/petit-form/issues\n"
 "POT-Creation-Date: 2026-09-13 12:00+0200\n"
 "PO-Revision-Date: 2026-09-13 12:00+0200\n"
@@ -52,7 +52,7 @@ msgid "The form has expired. Please reload the page and try again."
 msgstr "Le formulaire a expiré. Rechargez la page et réessayez."
 
 msgid "Too many attempts. Please try again later."
-msgstr "Vous avez envoyé plusieurs messages en peu de temps. Réessayez dans une heure — ou contactez-nous autrement si c'est urgent."
+msgstr "Vous avez envoyé plusieurs messages en peu de temps. Réessayez plus tard ou contactez-nous autrement si c'est urgent."
 
 msgid "The anti-spam check is missing. Please reload the page."
 msgstr "La vérification anti-spam est absente. Rechargez la page."
@@ -90,8 +90,8 @@ msgstr "Filtrer"
 msgid "%d leads"
 msgstr "%d leads"
 
-msgid "Date (UTC)"
-msgstr "Date (UTC)"
+msgid "Date (site timezone)"
+msgstr "Date (fuseau horaire du site)"
 
 msgid "Form"
 msgstr "Formulaire"
@@ -141,8 +141,8 @@ msgstr "Seconde couche anti-spam optionnelle. Laissez vide pour rester sur honey
 msgid "Rate limiting"
 msgstr "Limitation de débit"
 
-msgid "submissions per"
-msgstr "envois par"
+msgid "locally valid attempts per"
+msgstr "tentatives localement valides par"
 
 msgid "seconds, per IP and per form."
 msgstr "secondes, par IP et par formulaire."
@@ -164,3 +164,12 @@ msgstr "Lead supprimé."
 
 msgid "Lead not found (already deleted?)."
 msgstr "Lead introuvable (déjà supprimé ?)."
+
+msgid "Notification delivery stopped after three attempts. Check the PHP error log."
+msgstr "Envoi des notifications arrêté après trois tentatives. Consultez le journal d’erreurs PHP."
+
+msgid "Notifications pending. Check WP-Cron if delivery is delayed."
+msgstr "Notifications en attente. Vérifiez WP-Cron si l’envoi tarde."
+
+msgid "Petit Form could not write to its leads table. Check database permissions and the PHP error log (PF-E3001/PF-E3002)."
+msgstr "Petit Form n’a pas pu enregistrer les leads. Vérifiez les droits de la base de données et le journal d’erreurs PHP (PF-E3001/PF-E3002)."

@@ -11,6 +11,11 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
+wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
+global $wpdb;
+// These counters are disposable even when business data is retained.
+$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'petit_form_rate_' ) . '%' ) );
+
 if ( ! get_option( 'petit_form_delete_data_on_uninstall', false ) ) {
 	return;
 }
@@ -30,6 +35,7 @@ $options = array(
 	'petit_form_min_seconds',
 	'petit_form_delete_data_on_uninstall',
 	'petit_form_db_version',
+	'petit_form_storage_error',
 );
 foreach ( $options as $option ) {
 	delete_option( $option );

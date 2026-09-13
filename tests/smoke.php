@@ -64,10 +64,6 @@ function sanitize_textarea_field( $str ) {
 	return trim( $str );
 }
 
-function sanitize_email( $email ) {
-	return trim( (string) $email );
-}
-
 function is_email( $email ) {
 	return (bool) filter_var( $email, FILTER_VALIDATE_EMAIL );
 }
@@ -82,16 +78,6 @@ function apply_filters( $hook, $value ) {
 
 function wp_salt( $scheme = 'auth' ) {
 	return 'test-salt-for-smoke-tests';
-}
-
-// In-memory transients for rate-limit tests.
-$GLOBALS['pf_test_transients'] = array();
-function get_transient( $key ) {
-	return array_key_exists( $key, $GLOBALS['pf_test_transients'] ) ? $GLOBALS['pf_test_transients'][ $key ] : false;
-}
-function set_transient( $key, $value, $ttl = 0 ) {
-	$GLOBALS['pf_test_transients'][ $key ] = $value;
-	return true;
 }
 
 $GLOBALS['pf_test_options'] = array(
@@ -148,11 +134,13 @@ $fields = petit_form_parse_fields( 'prénom:required' );
 ok( 'prenom' === $fields[0]['key'], 'prénom key becomes prenom (accents removed)' );
 ok( 'Prénom' === $fields[0]['label'], 'label keeps the accent' );
 ok( 'name' === $fields[0]['type'], 'prenom maps to name type' );
+ok( array() === petit_form_parse_fields( 'prénom, prenom' ), 'duplicate normalized keys reject the definition' );
+ok( array() === petit_form_parse_fields( '!!!:required' ), 'empty normalized key rejects the definition' );
 
 echo "sanitization\n";
 
 ok( '' === petit_form_sanitize_value( '<script>alert(1)</script>', 'text' ), 'text: script block removed with content (like wp_strip_all_tags)' );
-ok( '' === petit_form_sanitize_value( "a\nb", 'tel' ), 'tel: letters stripped' );
+ok( "a\nb" === petit_form_sanitize_value( "a\nb", 'tel' ), 'tel: invalid input preserved for validation' );
 ok( '+33 6 12 34 56 78' === petit_form_sanitize_value( '+33 6 12 34 56 78', 'tel' ), 'tel: valid kept' );
 ok( "ligne1\nligne2" === petit_form_sanitize_value( "ligne1\nligne2", 'textarea' ), 'textarea: newlines kept' );
 ok( '1' === petit_form_sanitize_value( 'on', 'checkbox' ), 'checkbox: truthy -> 1' );
@@ -178,7 +166,7 @@ ok( is_wp_error( $err ) && 'PF-E1104' === $err->get_error_code(), '256-char text
 ok( true === petit_form_validate_value( $text_field, str_repeat( 'a', 255 ) ), '255-char text passes' );
 
 // ---------------------------------------------------------------------------
-// security.php (traps + rate limiting; Turnstile disabled in tests)
+// security.php (traps; SQL quota and enabled Turnstile need integration tests)
 // ---------------------------------------------------------------------------
 
 echo "honeypot\n";
@@ -232,15 +220,7 @@ ok( true === petit_form_verify_traps( $unslashed, 'guide' ), 'apostrophe spec ve
 $err = petit_form_verify_traps( $slashed, 'guide' );
 ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'slashed spec is rejected (documents why unslash is mandatory)' );
 
-echo "rate limiting\n";
-
-$GLOBALS['pf_test_transients'] = array();
-ok( true === petit_form_rate_limit_check( 'contact' ), '1st submission allowed' );
-ok( true === petit_form_rate_limit_check( 'contact' ), '2nd allowed' );
-ok( true === petit_form_rate_limit_check( 'contact' ), '3rd allowed (max=3)' );
-$err = petit_form_rate_limit_check( 'contact' );
-ok( is_wp_error( $err ) && 'PF-E2005' === $err->get_error_code(), '4th -> PF-E2005' );
-ok( true === petit_form_rate_limit_check( 'autre-form' ), 'other form has its own bucket' );
+// SQL quota behavior is covered by tests/integration.php with real WordPress.
 
 echo "turnstile disabled by default\n";
 ok( true === petit_form_verify_turnstile( array() ), 'no keys configured -> passes through' );
@@ -290,7 +270,7 @@ foreach ( $codes as $code ) {
 // Visitor-facing: every E1xxx/E2xxx code must have a mapped message.
 foreach ( $codes as $code ) {
 	if ( preg_match( '/^PF-E[12]/', $code ) ) {
-		ok( false !== strpos( $render, "'" . $code . "'" ), "$code has a visitor message" );
+		ok( (bool) preg_match( "/'" . $code . "'\\s*=>/", $render ), "$code has a visitor message" );
 	}
 }
 

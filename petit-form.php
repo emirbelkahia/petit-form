@@ -3,7 +3,7 @@
  * Plugin Name:       Petit Form
  * Plugin URI:        https://github.com/emirbelkahia/petit-form
  * Description:       Simple, secure lead-capture forms. Shortcode-driven, leads stored in your database, no bloat, no upsells, no tracking.
- * Version:           0.2.1
+ * Version:           0.2.2
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Emir Belkahia
@@ -18,7 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PETIT_FORM_VERSION', '0.2.1' );
+define( 'PETIT_FORM_VERSION', '0.2.2' );
+define( 'PETIT_FORM_DB_VERSION', '2' );
 define( 'PETIT_FORM_FILE', __FILE__ );
 define( 'PETIT_FORM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PETIT_FORM_URL', plugin_dir_url( __FILE__ ) );
@@ -29,6 +30,7 @@ require_once PETIT_FORM_DIR . 'includes/render.php';
 require_once PETIT_FORM_DIR . 'includes/submit.php';
 require_once PETIT_FORM_DIR . 'includes/leads.php';
 require_once PETIT_FORM_DIR . 'includes/mail.php';
+require_once PETIT_FORM_DIR . 'includes/delivery.php';
 require_once PETIT_FORM_DIR . 'includes/admin.php';
 
 /**
@@ -42,16 +44,21 @@ register_activation_hook( __FILE__, 'petit_form_activate' );
 
 /**
  * Schema upgrades run on version change, not only on activation: a zip
- * upload update never fires the activation hook. This also self-heals a
- * missing table (PF-E3001) without a manual reactivation.
+ * upload update never fires the activation hook. Admin visits also check
+ * for a missing table; failed inserts have a separate one-time repair.
  */
 function petit_form_maybe_upgrade() {
-	if ( get_option( 'petit_form_db_version' ) !== PETIT_FORM_VERSION ) {
+	if ( get_option( 'petit_form_db_version' ) !== PETIT_FORM_DB_VERSION || ( current_user_can( 'manage_options' ) && ! petit_form_table_exists() ) ) {
 		require_once PETIT_FORM_DIR . 'includes/activator.php';
 		petit_form_create_table();
 	}
 }
 add_action( 'admin_init', 'petit_form_maybe_upgrade' );
+
+add_filter( 'cron_schedules', 'petit_form_cron_schedules' );
+add_action( 'init', 'petit_form_schedule_delivery' );
+add_action( 'petit_form_deliver_pending', 'petit_form_deliver_pending' );
+register_deactivation_hook( __FILE__, 'petit_form_deactivate' );
 
 /**
  * Load translations.

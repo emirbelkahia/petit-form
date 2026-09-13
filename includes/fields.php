@@ -36,6 +36,7 @@ function petit_form_field_types() {
  */
 function petit_form_parse_fields( $spec ) {
 	$fields = array();
+	$seen   = array();
 	foreach ( explode( ',', (string) $spec ) as $chunk ) {
 		$parts = array_map( 'trim', explode( ':', trim( $chunk ) ) );
 		if ( empty( $parts[0] ) ) {
@@ -44,6 +45,10 @@ function petit_form_parse_fields( $spec ) {
 		$raw_key = $parts[0];
 		// remove_accents before sanitize_key so "prénom" becomes "prenom", not "prnom".
 		$key = sanitize_key( remove_accents( $raw_key ) );
+		if ( '' === $key || isset( $seen[ $key ] ) ) {
+			return array(); // Ambiguous definitions must not silently overwrite a value.
+		}
+		$seen[ $key ] = true;
 
 		$type     = null;
 		$required = false;
@@ -125,12 +130,11 @@ function petit_form_sanitize_value( $value, $type ) {
 		case 'textarea':
 			return sanitize_textarea_field( $value );
 		case 'email':
-			return sanitize_email( $value );
+		case 'tel':
+			// Validate the original address/number; never manufacture another one.
+			return trim( $value );
 		case 'checkbox':
 			return $value ? '1' : '';
-		case 'tel':
-			// Keep digits, spaces and +().- only; header-injection safe by construction.
-			return trim( preg_replace( '/[^0-9+().\-\s]/', '', $value ) );
 		default:
 			return sanitize_text_field( $value );
 	}
@@ -159,7 +163,8 @@ function petit_form_validate_value( $field, $value ) {
 			}
 			break;
 		case 'tel':
-			if ( ! preg_match( '/^\+?[0-9().\-\s]{6,20}$/', $value ) ) {
+			$digits = strlen( preg_replace( '/[^0-9]/', '', $value ) );
+			if ( ! preg_match( '/^\+?[0-9(). \-]+$/D', $value ) || $digits < 6 || $digits > 15 ) {
 				return new WP_Error( 'PF-E1103', sprintf( 'Invalid phone in field "%s".', $field['key'] ) );
 			}
 			break;
