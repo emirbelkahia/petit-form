@@ -114,7 +114,10 @@ function petit_form_verify_traps( $post, $form_id ) {
  * @return true|WP_Error
  */
 function petit_form_rate_limit_check( $form_id ) {
-	$max    = (int) get_option( 'petit_form_rate_max', 5 );
+	// Default 10/hour: only validated submissions count, and French mobile
+	// carriers put hundreds of subscribers behind one CGNAT IPv4 — a shared
+	// antenna must not lock out legitimate visitors.
+	$max    = (int) get_option( 'petit_form_rate_max', 10 );
 	$window = (int) get_option( 'petit_form_rate_window', HOUR_IN_SECONDS );
 	// One bucket per (IP hash, form): hash the pair so neither part is truncated.
 	$key    = 'pf_rl_' . substr( hash_hmac( 'sha256', petit_form_ip_hash() . '|' . $form_id, wp_salt( 'nonce' ) ), 0, 32 );

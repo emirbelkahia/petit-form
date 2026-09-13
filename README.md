@@ -63,7 +63,7 @@ Useful attributes: `submit="Button label"`, `success="Thank-you message"`.
 | WordPress nonce | Yes | CSRF — forged requests from another site |
 | Honeypot field | Yes | Dumb bots that fill every field (~85 % of bot spam) |
 | Signed time-trap | Yes | Bots submitting in under 3 s; the signature binds timestamp + form id + **field spec**, so visitors cannot tamper with `required` flags or field types. Valid 24 h (aligned with the nonce lifetime) so pages served from a page cache keep working |
-| Rate limiting | Yes | Floods: 5 validated submissions/hour per IP per form (configurable, sliding window) |
+| Rate limiting | Yes | Floods: 10 validated submissions/hour per IP per form (configurable, sliding window; only validated submissions count, so typos don't burn quota) |
 | Turnstile | Optional | Persistent/targeted bots. Enable in Settings with Cloudflare keys |
 | Sanitization + validation | Yes | XSS payloads, malformed emails/phones, over-long values |
 | Prepared statements | Yes | SQL injection |
@@ -137,6 +137,10 @@ Exit code 0 = all green. Run it before shipping any change.
 
 - v0.3: optional Akismet content check, per-form notification recipient, lead retention setting
 - Not planned: drag-and-drop builder, conditional logic, payments, multi-step. If you need those, use a vendor plugin — that is their job, not this one's.
+
+## Maintenance and contributing
+
+Petit Form is a personal-use project shared in the open. Maintenance is **slow and best-effort**: I fix what I use, when I use it. Issues and pull requests are read and welcome — just don't expect SLA-grade response times. Security reports: please open a private security advisory on GitHub rather than a public issue.
 
 ## License
 

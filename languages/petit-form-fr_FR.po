@@ -49,7 +49,7 @@ msgid "The form has expired. Please reload the page and try again."
 msgstr "Le formulaire a expiré. Rechargez la page et réessayez."
 
 msgid "Too many attempts. Please try again later."
-msgstr "Trop de tentatives. Réessayez plus tard."
+msgstr "Vous avez envoyé plusieurs messages en peu de temps. Réessayez dans une heure — ou contactez-nous autrement si c'est urgent."
 
 msgid "The anti-spam check is missing. Please reload the page."
 msgstr "La vérification anti-spam est absente. Rechargez la page."

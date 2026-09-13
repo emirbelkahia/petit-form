@@ -48,7 +48,7 @@ function petit_form_register_settings() {
 	register_setting( 'petit_form', 'petit_form_turnstile_secret_key', $string );
 	// Bounded: rate_window = 0 would create non-expiring transients (permanent
 	// block); rate_max = 0 would allow exactly one submission per window.
-	register_setting( 'petit_form', 'petit_form_rate_max', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 1, absint( $v ) ); }, 'default' => 5 ) );
+	register_setting( 'petit_form', 'petit_form_rate_max', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 1, absint( $v ) ); }, 'default' => 10 ) );
 	register_setting( 'petit_form', 'petit_form_rate_window', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 60, absint( $v ) ); }, 'default' => HOUR_IN_SECONDS ) );
 	register_setting( 'petit_form', 'petit_form_min_seconds', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return min( 60, absint( $v ) ); }, 'default' => 3 ) );
 	register_setting( 'petit_form', 'petit_form_delete_data_on_uninstall', array( 'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false ) );
@@ -278,7 +278,7 @@ function petit_form_settings_page() {
 				<tr>
 					<th scope="row"><?php esc_html_e( 'Rate limiting', 'petit-form' ); ?></th>
 					<td>
-						<input type="number" min="1" max="100" name="petit_form_rate_max" value="<?php echo esc_attr( (string) get_option( 'petit_form_rate_max', 5 ) ); ?>" style="width:80px;" />
+						<input type="number" min="1" max="100" name="petit_form_rate_max" value="<?php echo esc_attr( (string) get_option( 'petit_form_rate_max', 10 ) ); ?>" style="width:80px;" />
 						<?php esc_html_e( 'submissions per', 'petit-form' ); ?>
 						<input type="number" min="60" max="86400" name="petit_form_rate_window" value="<?php echo esc_attr( (string) get_option( 'petit_form_rate_window', HOUR_IN_SECONDS ) ); ?>" style="width:100px;" />
 						<?php esc_html_e( 'seconds, per IP and per form.', 'petit-form' ); ?>
