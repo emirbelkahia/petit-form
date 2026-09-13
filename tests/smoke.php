@@ -250,15 +250,15 @@ ok( false !== strpos( pf_csv_capture( array( '=CMD|/C calc' ) ), "'=CMD" ), 'for
 ok( "normal\n" === pf_csv_capture( array( 'normal' ) ), 'normal cell untouched' );
 
 // ---------------------------------------------------------------------------
-// Consistency: every PF-Exxxx code used in includes/ must exist in the
-// visitor message map AND in the README table.
+// Every PF-Exxxx code used in includes/ must be documented; visitor-facing
+// codes must also exist in the message map.
 // ---------------------------------------------------------------------------
 
 echo "error code consistency\n";
 
 $codes = array();
 foreach ( glob( dirname( __DIR__ ) . '/includes/*.php' ) as $file ) {
-	preg_match_all( "/'(PF-E\d{4})'/", file_get_contents( $file ), $m );
+	preg_match_all( '/\b(PF-E\d{4})\b/', file_get_contents( $file ), $m );
 	$codes = array_merge( $codes, $m[1] );
 }
 $codes   = array_unique( $codes );

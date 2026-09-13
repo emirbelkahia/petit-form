@@ -52,6 +52,8 @@ Asynchronous delivery keeps slow mail/webhook calls out of the visitor's request
 
 WP-Cron depends on site visits unless your host runs it separately. On a quiet site, delivery can be delayed; if cron stops running, notifications remain pending. To avoid relying on visits, configure your host's scheduler to run WordPress cron every minute. An external scheduler is required if `DISABLE_WP_CRON` is set.
 
+Administrators see **PF-E4003** if the notification task is missing or more than 15 minutes overdue, with instructions to ask the host to check cron. The warning clears when the schedule recovers. `DISABLE_WP_CRON` alone does not trigger it: an external scheduler may be working correctly. This checks the schedule, not successful execution or inbox delivery. See the [WordPress cron setup guide](https://developer.wordpress.org/plugins/cron/hooking-wp-cron-into-the-system-task-scheduler/) for host configuration.
+
 After the final failed attempt, automatic retries stop; the lead remains available in wp-admin. A server crash between sending and recording success can cause duplicate notifications. Webhook receivers should deduplicate by `site` and `lead_id`. Mail transport acceptance does not prove inbox delivery.
 
 ## Security and deployment
@@ -115,6 +117,7 @@ Rejections show a friendly message and a stable code. PHP logs include codes, te
 | PF-E3002 | Leads schema creation or upgrade failed |
 | PF-E4001 | Email transport rejected the notification |
 | PF-E4002 | Notification scheduling, data or progress failure |
+| PF-E4003 | Notification task missing or over 15 minutes overdue; administrator warning |
 | PF-E4101 | Webhook request failed or returned a non-2xx status |
 
 ## Development

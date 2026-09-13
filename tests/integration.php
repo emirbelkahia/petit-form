@@ -257,6 +257,31 @@ check( is_int( $id ) && 'Emoji 📩' === json_decode( $wpdb->get_var( "SELECT da
 
 petit_form_schedule_delivery();
 check( false !== wp_next_scheduled( 'petit_form_deliver_pending' ), 'Delivery schedule exists' );
+// Diagnose cron from its schedule, including sites using an external scheduler.
+function cron_notice() {
+	ob_start();
+	petit_form_admin_notices();
+	return ob_get_clean();
+}
+check( DISABLE_WP_CRON && false === strpos( cron_notice(), 'PF-E4003' ), 'A healthy schedule with visit-triggered cron disabled produces no warning' );
+wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
+wp_schedule_event( time() - 2 * MINUTE_IN_SECONDS, 'petit_form_minute', 'petit_form_deliver_pending' );
+check( false === strpos( cron_notice(), 'PF-E4003' ), 'A short cron delay does not produce a warning' );
+wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
+wp_schedule_event( time() - 16 * MINUTE_IN_SECONDS, 'petit_form_minute', 'petit_form_deliver_pending' );
+$notice = cron_notice();
+check( false !== strpos( $notice, 'PF-E4003' ) && false !== strpos( $notice, 'more than 15 minutes late' ) && false !== strpos( $notice, 'Ask your host' ), 'An overdue task shows an actionable administrator warning' );
+wp_set_current_user( 0 );
+check( '' === cron_notice(), 'Cron diagnostics are hidden from visitors' );
+wp_set_current_user( 1 );
+wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
+add_filter( 'pre_schedule_event', '__return_false' );
+petit_form_schedule_delivery();
+$notice = cron_notice();
+check( false !== strpos( $notice, 'PF-E4003' ) && false !== strpos( $notice, 'task is missing' ), 'Failed scheduling produces a visible warning without relying on logs' );
+remove_filter( 'pre_schedule_event', '__return_false' );
+petit_form_schedule_delivery();
+check( false === strpos( cron_notice(), 'PF-E4003' ), 'Cron warning clears once scheduling recovers' );
 petit_form_deactivate();
 check( false === wp_next_scheduled( 'petit_form_deliver_pending' ), 'Deactivation removes the schedule' );
 petit_form_schedule_delivery();

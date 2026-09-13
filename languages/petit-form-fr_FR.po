@@ -173,3 +173,15 @@ msgstr "Notifications en attente. Vérifiez WP-Cron si l’envoi tarde."
 
 msgid "Petit Form could not write to its leads table. Check database permissions and the PHP error log (PF-E3001/PF-E3002)."
 msgstr "Petit Form n’a pas pu enregistrer les leads. Vérifiez les droits de la base de données et le journal d’erreurs PHP (PF-E3001/PF-E3002)."
+
+msgid "Notifications use WP-Cron. Ask your host to run WordPress cron every minute to avoid relying on visits. If DISABLE_WP_CRON is enabled, an external scheduler is required."
+msgstr "Les notifications utilisent WP-Cron. Demandez à votre hébergeur d’exécuter les tâches planifiées WordPress chaque minute pour ne pas dépendre des visites. Si DISABLE_WP_CRON est activé, un planificateur externe est nécessaire."
+
+msgid "Petit Form notification task is missing (PF-E4003). Saved leads remain available."
+msgstr "La tâche d’envoi des notifications Petit Form est absente (PF-E4003). Les leads enregistrés restent disponibles."
+
+msgid "Petit Form notification task is more than 15 minutes late (PF-E4003). Saved leads remain available; notifications may be delayed."
+msgstr "La tâche d’envoi des notifications Petit Form a plus de 15 minutes de retard (PF-E4003). Les leads enregistrés restent disponibles ; les notifications peuvent être retardées."
+
+msgid "Ask your host to check WP-Cron and run WordPress cron every minute. If DISABLE_WP_CRON is enabled, an external scheduler is required."
+msgstr "Demandez à votre hébergeur de vérifier WP-Cron et d’exécuter les tâches planifiées WordPress chaque minute. Si DISABLE_WP_CRON est activé, un planificateur externe est nécessaire."

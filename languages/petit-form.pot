@@ -84,87 +84,113 @@ msgstr ""
 msgid "Invalid nonce (PF-E2001)."
 msgstr ""
 
-#: includes/admin.php:257
+#: includes/admin.php:253
+msgid ""
+"Notifications use WP-Cron. Ask your host to run WordPress cron every minute "
+"to avoid relying on visits. If DISABLE_WP_CRON is enabled, an external "
+"scheduler is required."
+msgstr ""
+
+#: includes/admin.php:258
 msgid "Notification email"
 msgstr ""
 
-#: includes/admin.php:259
+#: includes/admin.php:260
 msgid ""
 "Leads are always stored in the database; this email is only a notification."
 msgstr ""
 
-#: includes/admin.php:262
+#: includes/admin.php:263
 msgid "Webhook URL"
 msgstr ""
 
-#: includes/admin.php:264
+#: includes/admin.php:265
 msgid "Optional. Every new lead is POSTed there as JSON."
 msgstr ""
 
-#: includes/admin.php:267
+#: includes/admin.php:268
 msgid "Webhook auth header"
 msgstr ""
 
-#: includes/admin.php:274
+#: includes/admin.php:275
 msgid "Cloudflare Turnstile"
 msgstr ""
 
-#: includes/admin.php:276
+#: includes/admin.php:277
 msgid "Site key"
 msgstr ""
 
-#: includes/admin.php:277
+#: includes/admin.php:278
 msgid "Secret key"
 msgstr ""
 
-#: includes/admin.php:278
+#: includes/admin.php:279
 msgid ""
 "Optional second anti-spam layer. Leave empty to stay on honeypot + time-trap "
 "+ rate limiting."
 msgstr ""
 
-#: includes/admin.php:282
+#: includes/admin.php:283
 msgid "Rate limiting"
 msgstr ""
 
-#: includes/admin.php:285
+#: includes/admin.php:286
 msgid "locally valid attempts per"
 msgstr ""
 
-#: includes/admin.php:287
+#: includes/admin.php:288
 msgid "seconds, per IP and per form."
 msgstr ""
 
-#: includes/admin.php:291
+#: includes/admin.php:292
 msgid "Minimum fill time"
 msgstr ""
 
-#: includes/admin.php:293
+#: includes/admin.php:294
 msgid "seconds. Faster submissions are rejected as bots."
 msgstr ""
 
-#: includes/admin.php:296
+#: includes/admin.php:297
 msgid "Data on uninstall"
 msgstr ""
 
-#: includes/admin.php:298
+#: includes/admin.php:299
 msgid "Delete the leads table and all settings when the plugin is uninstalled."
 msgstr ""
 
-#: includes/admin.php:312
+#: includes/admin.php:316
 msgid ""
 "Petit Form could not write to its leads table. Check database permissions "
 "and the PHP error log (PF-E3001/PF-E3002)."
 msgstr ""
 
-#: includes/admin.php:319
+#: includes/admin.php:322
+msgid ""
+"Petit Form notification task is missing (PF-E4003). Saved leads remain "
+"available."
+msgstr ""
+
+#: includes/admin.php:323
+msgid ""
+"Petit Form notification task is more than 15 minutes late (PF-E4003). Saved "
+"leads remain available; notifications may be delayed."
+msgstr ""
+
+#: includes/admin.php:325
+msgid ""
+"Ask your host to check WP-Cron and run WordPress cron every minute. If "
+"DISABLE_WP_CRON is enabled, an external scheduler is required."
+msgstr ""
+
+#: includes/admin.php:332
 msgid "Lead deleted."
 msgstr ""
 
-#: includes/admin.php:321
+#: includes/admin.php:334
 msgid "Lead not found (already deleted?)."
 msgstr ""
 
+#. translators: 1: form identifier, 2: site name
 #: includes/mail.php:32
 #, php-format
 msgid "[%1$s] New lead on %2$s"

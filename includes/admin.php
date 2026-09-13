@@ -250,6 +250,7 @@ function petit_form_settings_page() {
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Petit Form settings', 'petit-form' ); ?></h1>
+		<p><?php esc_html_e( 'Notifications use WP-Cron. Ask your host to run WordPress cron every minute to avoid relying on visits. If DISABLE_WP_CRON is enabled, an external scheduler is required.', 'petit-form' ); ?></p>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'petit_form' ); ?>
 			<table class="form-table">
@@ -305,13 +306,25 @@ function petit_form_settings_page() {
 }
 
 /**
- * One-shot admin notices, carried by the redirect URL (no transient).
+ * Persistent storage/cron warnings and one-shot notices from redirect URLs.
  */
 function petit_form_admin_notices() {
-	if ( current_user_can( 'manage_options' ) && get_option( 'petit_form_storage_error' ) ) {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	if ( get_option( 'petit_form_storage_error' ) ) {
 		echo '<div class="notice notice-error"><p>' . esc_html__( 'Petit Form could not write to its leads table. Check database permissions and the PHP error log (PF-E3001/PF-E3002).', 'petit-form' ) . '</p></div>';
 	}
-	if ( ! isset( $_GET['pf_notice'] ) || ! current_user_can( 'manage_options' ) ) {
+	// A disabled visit trigger is valid when a host scheduler runs WP-Cron.
+	$next = wp_next_scheduled( 'petit_form_deliver_pending' );
+	if ( false === $next || $next < time() - 15 * MINUTE_IN_SECONDS ) {
+		$message = false === $next
+			? __( 'Petit Form notification task is missing (PF-E4003). Saved leads remain available.', 'petit-form' )
+			: __( 'Petit Form notification task is more than 15 minutes late (PF-E4003). Saved leads remain available; notifications may be delayed.', 'petit-form' );
+		echo '<div class="notice notice-warning"><p>' . esc_html( $message ) . '</p><p>'
+			. esc_html__( 'Ask your host to check WP-Cron and run WordPress cron every minute. If DISABLE_WP_CRON is enabled, an external scheduler is required.', 'petit-form' ) . '</p></div>';
+	}
+	if ( ! isset( $_GET['pf_notice'] ) ) {
 		return;
 	}
 	$notice = sanitize_key( wp_unslash( $_GET['pf_notice'] ) );
