@@ -1,8 +1,6 @@
 <?php
 /**
- * Notification email. Best-effort side effect: a failure is logged
- * (PF-E4001) but never blocks the visitor, because the lead is already
- * stored in the database.
+ * Notification transports. Called by the delivery worker after storage.
  *
  * @package PetitForm
  */
@@ -103,7 +101,8 @@ function petit_form_send_webhook( $form_id, $values, $lead_id ) {
 	$response = wp_remote_post(
 		$url,
 		array(
-			'timeout' => 15,
+			'timeout'     => 10,
+			'redirection' => 0,
 			'headers' => $headers,
 			'body'    => wp_json_encode(
 				array(
@@ -121,7 +120,7 @@ function petit_form_send_webhook( $form_id, $values, $lead_id ) {
 		return new WP_Error( 'PF-E4101', 'Webhook request failed: ' . $response->get_error_message() );
 	}
 	$code = wp_remote_retrieve_response_code( $response );
-	if ( $code >= 400 ) {
+	if ( $code < 200 || $code >= 300 ) {
 		return new WP_Error( 'PF-E4101', sprintf( 'Webhook returned HTTP %d.', $code ) );
 	}
 	return true;

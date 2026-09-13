@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '7.4'
+            wordpress: '6.0'
+          - php: '8.2'
+            wordpress: latest
+          - php: '8.5'
+            wordpress: latest
+    services:
+      database:
+        image: mariadb:11.4
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mysqli, mbstring, dom, zip
+          coverage: none
+      - name: PHP syntax
+        run: for file in ./*.php includes/*.php tests/*.php; do php -l "$file"; done
+      - name: Isolated logic
+        run: php tests/smoke.php
+      - name: WordPress integration
+        run: bash tests/run-integration.sh '${{ matrix.wordpress }}'
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: >-
+          git archive --format=zip --prefix=petit-form/ -o petit-form.zip HEAD
+          petit-form.php uninstall.php includes assets languages README.md LICENSE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: petit-form-${{ github.sha }}
+          path: petit-form.zip
+          retention-days: 14

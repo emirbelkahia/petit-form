@@ -1,8 +1,7 @@
 <?php
 /**
  * Admin screens: "Leads" list (view, delete, CSV export) and settings.
- * Every state-changing action is nonce-protected and capability-checked —
- * the 2026 CF7 DB Handler CVE was exactly a missing nonce on a bulk action.
+ * Every state-changing action is nonce-protected and capability-checked.
  *
  * @package PetitForm
  */
@@ -46,10 +45,9 @@ function petit_form_register_settings() {
 	register_setting( 'petit_form', 'petit_form_webhook_header_value', $string );
 	register_setting( 'petit_form', 'petit_form_turnstile_site_key', $string );
 	register_setting( 'petit_form', 'petit_form_turnstile_secret_key', $string );
-	// Bounded: rate_window = 0 would create non-expiring transients (permanent
-	// block); rate_max = 0 would allow exactly one submission per window.
-	register_setting( 'petit_form', 'petit_form_rate_max', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 1, absint( $v ) ); }, 'default' => 10 ) );
-	register_setting( 'petit_form', 'petit_form_rate_window', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 60, absint( $v ) ); }, 'default' => HOUR_IN_SECONDS ) );
+	// Keep persisted settings within the same bounds as the form controls.
+	register_setting( 'petit_form', 'petit_form_rate_max', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 1, min( 100, absint( $v ) ) ); }, 'default' => 10 ) );
+	register_setting( 'petit_form', 'petit_form_rate_window', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 60, min( DAY_IN_SECONDS, absint( $v ) ) ); }, 'default' => HOUR_IN_SECONDS ) );
 	register_setting( 'petit_form', 'petit_form_min_seconds', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return min( 60, absint( $v ) ); }, 'default' => 3 ) );
 	register_setting( 'petit_form', 'petit_form_delete_data_on_uninstall', array( 'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false ) );
 }
@@ -96,7 +94,7 @@ function petit_form_leads_page() {
 			<thead>
 				<tr>
 					<th style="width:60px;">#</th>
-					<th style="width:160px;"><?php esc_html_e( 'Date (UTC)', 'petit-form' ); ?></th>
+					<th style="width:160px;"><?php esc_html_e( 'Date (site timezone)', 'petit-form' ); ?></th>
 					<th style="width:140px;"><?php esc_html_e( 'Form', 'petit-form' ); ?></th>
 					<th><?php esc_html_e( 'Data', 'petit-form' ); ?></th>
 					<th style="width:80px;"></th>
@@ -116,6 +114,11 @@ function petit_form_leads_page() {
 						<?php foreach ( (array) $data as $k => $v ) : ?>
 							<strong><?php echo esc_html( $k ); ?></strong> : <?php echo esc_html( $v ); ?><br />
 						<?php endforeach; ?>
+						<?php if ( ! empty( $lead->notify_data ) ) : ?>
+							<p class="description"><?php echo esc_html( $lead->notify_attempts >= 3 && (int) $lead->notify_after <= time()
+								? __( 'Notification delivery stopped after three attempts. Check the PHP error log.', 'petit-form' )
+								: __( 'Notifications pending. Check WP-Cron if delivery is delayed.', 'petit-form' ) ); ?></p>
+						<?php endif; ?>
 					</td>
 					<td>
 						<?php
@@ -247,6 +250,7 @@ function petit_form_settings_page() {
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Petit Form settings', 'petit-form' ); ?></h1>
+		<p><?php esc_html_e( 'Notifications use WP-Cron. Ask your host to run WordPress cron every minute to avoid relying on visits. If DISABLE_WP_CRON is enabled, an external scheduler is required.', 'petit-form' ); ?></p>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'petit_form' ); ?>
 			<table class="form-table">
@@ -279,7 +283,7 @@ function petit_form_settings_page() {
 					<th scope="row"><?php esc_html_e( 'Rate limiting', 'petit-form' ); ?></th>
 					<td>
 						<input type="number" min="1" max="100" name="petit_form_rate_max" value="<?php echo esc_attr( (string) get_option( 'petit_form_rate_max', 10 ) ); ?>" style="width:80px;" />
-						<?php esc_html_e( 'submissions per', 'petit-form' ); ?>
+						<?php esc_html_e( 'locally valid attempts per', 'petit-form' ); ?>
 						<input type="number" min="60" max="86400" name="petit_form_rate_window" value="<?php echo esc_attr( (string) get_option( 'petit_form_rate_window', HOUR_IN_SECONDS ) ); ?>" style="width:100px;" />
 						<?php esc_html_e( 'seconds, per IP and per form.', 'petit-form' ); ?>
 					</td>
@@ -302,10 +306,25 @@ function petit_form_settings_page() {
 }
 
 /**
- * One-shot admin notices, carried by the redirect URL (no transient).
+ * Persistent storage/cron warnings and one-shot notices from redirect URLs.
  */
 function petit_form_admin_notices() {
-	if ( ! isset( $_GET['pf_notice'] ) || ! current_user_can( 'manage_options' ) ) {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	if ( get_option( 'petit_form_storage_error' ) ) {
+		echo '<div class="notice notice-error"><p>' . esc_html__( 'Petit Form could not write to its leads table. Check database permissions and the PHP error log (PF-E3001/PF-E3002).', 'petit-form' ) . '</p></div>';
+	}
+	// A disabled visit trigger is valid when a host scheduler runs WP-Cron.
+	$next = wp_next_scheduled( 'petit_form_deliver_pending' );
+	if ( false === $next || $next < time() - 15 * MINUTE_IN_SECONDS ) {
+		$message = false === $next
+			? __( 'Petit Form notification task is missing (PF-E4003). Saved leads remain available.', 'petit-form' )
+			: __( 'Petit Form notification task is more than 15 minutes late (PF-E4003). Saved leads remain available; notifications may be delayed.', 'petit-form' );
+		echo '<div class="notice notice-warning"><p>' . esc_html( $message ) . '</p><p>'
+			. esc_html__( 'Ask your host to check WP-Cron and run WordPress cron every minute. If DISABLE_WP_CRON is enabled, an external scheduler is required.', 'petit-form' ) . '</p></div>';
+	}
+	if ( ! isset( $_GET['pf_notice'] ) ) {
 		return;
 	}
 	$notice = sanitize_key( wp_unslash( $_GET['pf_notice'] ) );

@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Examples:
  *   [petit-form id="contact" fields="name:required, email:required, message:textarea:required"]
- *   [petit-form id="guide" fields="prenom, email:required, telephone, rgpd:checkbox:required:J'accepte la politique de confidentialité" submit="Recevoir le guide"]
+ *   [petit-form id="guide" fields="name, email:required, phone, consent:checkbox:required:I accept the privacy policy" submit="Get the guide"]
  *
  * Attributes:
  *   id      (required) form identifier, used in hooks, rate limiting, leads table
@@ -82,7 +82,8 @@ function petit_form_shortcode( $atts ) {
 		<?php petit_form_render_trap_fields( $form_id, $atts['fields'] ); ?>
 		<input type="hidden" name="action" value="petit_form_submit" />
 		<input type="hidden" name="pf_form_id" value="<?php echo esc_attr( $form_id ); ?>" />
-		<input type="hidden" name="pf_fields" value="<?php echo esc_attr( $atts['fields'] ); ?>" />
+		<?php // Double-encode existing entities so the browser posts the exact signed bytes. ?>
+		<input type="hidden" name="pf_fields" value="<?php echo htmlspecialchars( $atts['fields'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true ); ?>" />
 		<input type="hidden" name="pf_back" value="<?php echo esc_url( petit_form_current_url() ); ?>" />
 		<?php wp_nonce_field( 'petit_form_submit_' . $form_id, 'pf_nonce' ); ?>
 
@@ -137,11 +138,12 @@ function petit_form_current_url() {
  *
  * Messages can be overridden without touching this plugin:
  *   add_filter( 'petit_form_user_message', fn( $msg, $code ) =>
- *       'PF-E2005' === $code ? 'Doucement !' : $msg, 10, 2 );
+ *       'PF-E2005' === $code ? 'Please try again later.' : $msg, 10, 2 );
  */
 function petit_form_user_message_for( $code ) {
 	$generic = __( 'Sorry, your message could not be sent. Please try again.', 'petit-form' );
 	$map     = array(
+		'PF-E1001' => $generic,
 		'PF-E1101' => __( 'A required field is missing.', 'petit-form' ),
 		'PF-E1102' => __( 'The email address looks invalid.', 'petit-form' ),
 		'PF-E1103' => __( 'The phone number looks invalid.', 'petit-form' ),
@@ -157,6 +159,7 @@ function petit_form_user_message_for( $code ) {
 		// purpose: bots must not learn which layer caught them.
 		'PF-E2002' => $generic,
 		'PF-E2008' => $generic,
+		'PF-E2009' => $generic,
 	);
 	$message = isset( $map[ $code ] ) ? $map[ $code ] : $generic;
 

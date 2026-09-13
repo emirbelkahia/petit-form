@@ -1,149 +1,135 @@
 # Petit Form
 
-Simple, secure lead-capture forms for WordPress. Shortcode-driven, leads stored in your own database, no bloat, no upsells, no tracking, no external service required.
+Small shortcode-based contact forms for WordPress. Leads are stored in your database and accessible under **Leads** in wp-admin. No bundled libraries, build step, tracking, file uploads, or external account required. Optional Cloudflare Turnstile and a JSON webhook are available.
 
-Built for sites that need a contact or capture form that **just works and keeps working**: no license server, no feature gating, no vendor updates changing the markup under you.
+Requires WordPress 6.0+ and PHP 7.4+. For production, keep WordPress updated and use a [supported PHP release](https://www.php.net/supported-versions.php).
 
 ## Is Petit Form for you?
 
-**Yes, if:**
-- you need a simple contact or lead-capture form (name, email, phone, message, consent checkbox)
-- you want every lead stored in your own database — not just in an email
-- you are tired of vendor upsells, dashboard nags and update anxiety
-- you want a plugin small enough to be read, audited and maintained in one sitting — by you or by a coding agent
+For site owners and developers who need a few simple contact or lead forms, local records, and email or webhook notifications, and are comfortable configuring shortcodes and styling with CSS.
 
-**No, if:**
-- you need a drag-and-drop form builder, conditional logic, multi-step forms or payments → use WPForms, Fluent Forms or Gravity Forms
-- you need dozens of pre-built integrations → vendor plugins exist for that
-- pasting a shortcode into a page feels too technical → you want a visual builder, this is not it
+Single-site only. Visual builders, conditional logic, multi-step forms, uploads, payments and a large integration catalog are outside its scope.
 
-## Built in the coding-agent era
+The features overlap with existing form plugins. Petit Form exists to keep this limited scope in a small codebase that you can inspect and maintain yourself. If your current solution already fits, switching may bring no practical benefit.
 
-Petit Form was created with coding agents, and is designed to be **maintained and audited by coding agents**: small enough to fit in one context window, stable error codes (`PF-Exxxx`) that make log lines diagnosable years later, smoke tests that run without WordPress (`php tests/smoke.php`), and only long-stable WordPress APIs. If an agent (or a human) needs to understand, patch or extend this plugin in five years, everything they need is in this repo.
+## Install and use
 
-## Why not WPForms / Contact Form 7 / Fluent Forms?
+Use the installable ZIP produced by GitHub Actions, or build one from a committed revision:
 
-- WPForms Lite **does not store submissions** in the free tier — your leads only exist in an email.
-- Vendor plugins ship dashboard widgets, upsell notices, their own CSS/JS and tracking.
-- Petit Form is ~1 300 lines of PHP you can read in one sitting. Every lead is a row in your database. That is the whole product.
-
-## Features
-
-- Shortcode forms with declarative fields: text, name, email, tel, textarea, checkbox (GDPR consent)
-- **Leads stored in your database** (`wp_petitform_leads`) with an admin list, per-form filter and CSV export
-- Notification email with Reply-To set to the visitor, via `wp_mail()` — Petit Form has **no mail mechanism of its own**: it uses your site's existing mail stack (host sendmail by default, or any SMTP plugin you install), and the database remains the source of truth if email fails
-- Generic outbound **webhook** (JSON POST, optional auth header) for CRMs and automation
-- Developer action hook `petit_form_lead_created` for site-specific integrations
-- Security: nonce, honeypot, signed time-trap, per-IP/per-form rate limiting, per-type sanitization, prepared statements, escaped output, capability checks on every admin action
-- Optional **Cloudflare Turnstile** second layer (off by default)
-- No file uploads, by design (that whole vulnerability class does not exist here)
-- GDPR-aware: raw IPs are never stored (HMAC hash only), leads can be deleted one by one, optional data deletion on uninstall
-
-## Install
-
-1. Download the [latest release zip](https://github.com/emirbelkahia/petit-form/releases) (or clone this repo).
-2. WordPress admin → Plugins → Add New → Upload Plugin → choose the zip → Activate.
-3. A **Leads** menu appears in wp-admin. Settings live under Leads → Settings.
-
-## Usage
-
-```
-[petit-form id="contact" fields="name:required, email:required, telephone, message:textarea:required, rgpd:checkbox:required:I accept the privacy policy"]
+```sh
+git archive --format=zip --prefix=petit-form/ -o /tmp/petit-form.zip HEAD \
+  petit-form.php uninstall.php includes assets languages README.md LICENSE
 ```
 
-Field syntax: `key[:type][:required][:Custom label]`, comma-separated.
-Types: `text`, `name`, `email`, `tel`, `textarea`, `checkbox`. When omitted, the type is guessed from the key (`email` → email, `message` → textarea, `rgpd`/`gdpr`/`consent` → checkbox, …).
+Upload the ZIP under **Plugins → Add New → Upload Plugin**, activate **Petit Form**, and configure notifications and anti-spam under **Leads → Settings**. Tests and CI files are excluded from this ZIP. Copying the full repository also copies those files to disk, though the plugin never loads or runs them.
 
-Useful attributes: `submit="Button label"`, `success="Thank-you message"`.
+Add a shortcode to a page:
 
-## Security model
+```text
+[petit-form id="contact" fields="name:required, email:required, telephone, message:textarea:required, consent:checkbox:required:I accept the privacy policy"]
+```
 
-| Layer | Always on? | What it stops |
-|---|---|---|
-| WordPress nonce | Yes | CSRF — forged requests from another site |
-| Honeypot field | Yes | Dumb bots that fill every field (~85 % of bot spam) |
-| Signed time-trap | Yes | Bots submitting in under 3 s; the signature binds timestamp + form id + **field spec**, so visitors cannot tamper with `required` flags or field types. Valid 24 h |
-| Rate limiting | Yes | Floods: 10 validated submissions/hour per IP per form (configurable; only validated submissions count, so typos don't burn quota) |
-| Turnstile | Optional | Persistent/targeted bots. Enable in Settings with Cloudflare keys |
-| Sanitization + validation | Yes | XSS payloads, malformed emails/phones, over-long values |
-| Prepared statements | Yes | SQL injection |
-| Escaped output | Yes | Stored XSS in the admin leads list |
-| Capability checks + nonces on admin actions | Yes | The classic "CSRF on bulk delete" CVE pattern |
+- `id` is required. Use distinct IDs for forms on the same page.
+- `fields` defaults to required name, email and message fields. Syntax: `key[:type][:required][:Label]`, separated by commas. Commas and colons are reserved separators.
+- Types: `text`, `name`, `email`, `tel`, `textarea`, `checkbox`. Common keys infer their type, including `prenom`, `courriel`, `telephone`, `message`, `rgpd` and `consent`.
+- Keys are normalized to lowercase ASCII; empty or duplicate normalized keys invalidate the form.
+- Optional `submit="Send"` and `success="Thank you!"` attributes change the button and confirmation.
 
-Error handling: every rejection carries a stable code (`PF-Exxxx`), shown to the visitor next to a friendly message and written to the PHP error log with technical context (never field values — safe to log in production). Set `define( 'PETIT_FORM_LOG', false );` in `wp-config.php` to silence logging.
+Text/name/email fields allow up to 255 characters, telephone fields 32, and textareas 10,000. Telephone validation accepts 6–15 digits with spaces and `+().-` formatting. Email addresses must pass WordPress validation; unsupported internationalized addresses are rejected without rewriting them. The complete stored JSON is limited to 60 KB, including Unicode escapes.
 
-| Code | Meaning |
-|---|---|
-| PF-E1001 | Shortcode misconfigured (missing id/fields) |
-| PF-E1101 | Required field empty |
-| PF-E1102 | Invalid email |
-| PF-E1103 | Invalid phone |
-| PF-E1104 | Field too long / payload over 60 KB |
-| PF-E2001 | Nonce missing/invalid |
-| PF-E2002 | Honeypot filled (bot) |
-| PF-E2003 | Submitted too fast (bot) |
-| PF-E2004 | Time-trap token forged, tampered field spec, or expired |
-| PF-E2005 | Rate limit exceeded |
-| PF-E2006 | Turnstile token missing |
-| PF-E2007 | Turnstile rejected the visitor (or a 4xx from the API) |
-| PF-E2008 | Turnstile API unreachable/5xx — submission accepted (fail-open, logged) |
-| PF-E3001 | Database insert failed |
-| PF-E3002 | Leads table creation failed (check DB user rights) |
-| PF-E4001 | Notification email failed |
-| PF-E4101 | Webhook delivery failed |
+The admin list supports filtering, individual deletion and CSV export. Dates use the site's timezone. CSV exports escape formula prefixes and process rows in batches.
 
-Design decision: when the Turnstile API is unreachable, submissions are **accepted and logged** (fail-open). Losing a real lead costs more than a spam wave during a Cloudflare outage. The database remains the source of truth.
+## Notifications
+
+The lead and its pending notifications are saved together. The visitor's confirmation means the lead was stored; delivery happens separately through **WP-Cron**.
+
+Asynchronous delivery keeps slow mail/webhook calls out of the visitor's request and allows recovery from temporary transport failures. We accept the added delivery state, retry logic and worker coordination, plus the need to keep cron running. The existing leads table and native WordPress scheduler avoid a separate queue service or library.
+
+- Email uses `wp_mail()` and your site's existing mail transport, including any SMTP plugin. The configured recipient defaults to the site's admin email. Reply-To uses the first populated email field and, when present, a name field.
+- The optional webhook receives JSON with `lead_id`, `form`, `fields` and `site`. An optional authentication header is supported. Only HTTP 2xx counts as success; redirects are not followed. Use an HTTPS endpoint.
+- A worker scheduled every minute handles up to five leads per run. Failed channels are retried after five minutes, with at most three attempts per lead. A successful channel is not intentionally resent when the other fails. Pending and stopped deliveries appear in the leads list; details go to the PHP error log.
+- Delivery uses the current settings. Disabling the webhook cancels its pending sends. Old leads are not notified again on upgrade.
+
+WP-Cron depends on site visits unless your host runs it separately. On a quiet site, delivery can be delayed; if cron stops running, notifications remain pending. To avoid relying on visits, configure your host's scheduler to run WordPress cron every minute. An external scheduler is required if `DISABLE_WP_CRON` is set.
+
+Administrators see **PF-E4003** if the notification task is missing or more than 15 minutes overdue, with instructions to ask the host to check cron. The warning clears when the schedule recovers. `DISABLE_WP_CRON` alone does not trigger it: an external scheduler may be working correctly. This checks the schedule, not successful execution or inbox delivery. See the [WordPress cron setup guide](https://developer.wordpress.org/plugins/cron/hooking-wp-cron-into-the-system-task-scheduler/) for host configuration.
+
+After the final failed attempt, automatic retries stop; the lead remains available in wp-admin. A server crash between sending and recording success can cause duplicate notifications. Webhook receivers should deduplicate by `site` and `lead_id`. Mail transport acceptance does not prove inbox delivery.
+
+## Security and deployment
+
+- Every submission requires a WordPress nonce and an HMAC signature covering timestamp, form ID and field definition. These prevent field-definition tampering. Public tokens can be fetched and replayed; WordPress guests share a nonce by default, so the nonce does not establish a visitor's identity or prove humanity.
+- A honeypot and minimum fill time (default three seconds) reject basic automation. Signed forms expire after 24 hours; WordPress nonces normally expire after 12–24 hours.
+- The default quota is **10 locally valid attempts per IP and form per fixed UTC hour**, consumed atomically in the database before Turnstile. Local field-validation errors do not count; rejected CAPTCHA attempts and subsequent storage failures do. Settings allow 1–100 attempts per 60–86,400-second window. A burst can span two adjacent windows; this is not DDoS protection.
+- Turnstile is enabled only when both keys are configured. Invalid tokens and non-200 responses below 500 are rejected. Network errors and HTTP 5xx **fail open**, accepting within the local quota and logging PF-E2008.
+- SQL values are parameterized, rendered values are escaped, and admin read/export/delete operations require `manage_options`; exports and deletions also require nonces.
+
+Check these deployment conditions:
+
+1. Keep form-page cache lifetime below 12 hours, including any CDN cache. Purge cached forms after changing their definition or upgrading. Reloading cannot repair an expired form if the cache still serves it.
+2. Allow anonymous POST requests to `/wp-admin/admin-post.php`.
+3. `REMOTE_ADDR` is the default IP source. Behind a trusted proxy, configure `petit_form_client_ip` to resolve the real client safely. Never blindly trust `X-Forwarded-For`; otherwise visitors may share the proxy's quota. IPv6 addresses share a bucket per /64.
+4. Verify an actual submission, the saved row, and notification delivery after deployment. Keep a restorable database backup. Schema upgrades run on admin requests and delivery runs; missing tables are also checked during admin visits and repaired once after a failed insert. Recreating a missing table cannot recover its old rows.
+
+## Data and limitations
+
+Leads remain until individually deleted. Raw IPs are not stored in the plugin's tables; salted HMACs are retained with leads and in logs. Turnstile receives the client IP when enabled. Server logs and other plugins have their own data policies. Retention and privacy-request handling remain the site owner's responsibility; there is no automatic lead purge or WordPress privacy exporter/eraser.
+
+Uninstall preserves leads and settings by default. Enable **Delete data on uninstall** to remove them. Scheduled delivery is cleared on deactivation; pending leads resume after reactivation.
+
+A validation error clears entered values; duplicate submissions can create duplicate leads. Additional integrations are added only when a concrete need justifies their maintenance.
 
 ## Customization
 
-**Texts.** Per form, via shortcode attributes: `submit="..."`, `success="..."`, and field labels (`name:required:Your name`). Visitor-facing error messages can be overridden with one filter:
+Use theme CSS to override the `.petit-form` and `.pf-` selectors. Visitor messages and custom integrations use WordPress hooks:
 
 ```php
 add_filter( 'petit_form_user_message', function ( $message, $code ) {
-    return 'PF-E2005' === $code ? 'Easy now — try again in a bit.' : $message;
+    return 'PF-E2005' === $code ? 'Please try again later.' : $message;
 }, 10, 2 );
-```
 
-**Styling.** There is deliberately no CSS editor in this plugin — WordPress already ships one: *Appearance → Customize → Additional CSS*. It is free, stored in the database, and survives updates. The plugin's stylesheet uses low-specificity, `.pf-`-prefixed selectors and no `!important`, so any rule you add there wins.
-
-## For developers
-
-```php
-// Fires after a lead is stored. $values are sanitized, keyed by field key.
 add_action( 'petit_form_lead_created', function ( $lead_id, $form_id, $values ) {
-    if ( 'guide' === $form_id ) {
-        // sync to your CRM, etc.
-    }
+    // Runs synchronously after storage. Keep custom handlers fast.
 }, 10, 3 );
 ```
 
-## Tests
+## Diagnostics
 
-Pure logic (field parsing, sanitization, validation, honeypot, time-trap, rate limiting) is testable without WordPress:
+Rejections show a friendly message and a stable code. PHP logs include codes, technical context, form identifiers and IP hashes; submission field values are not deliberately logged. Define `PETIT_FORM_LOG` as `false` in `wp-config.php` to disable plugin logging.
 
-```
-php tests/smoke.php
-```
+| Code | Meaning |
+|---|---|
+| PF-E1001 | Missing form ID or unusable field definition |
+| PF-E1101 | Required field empty |
+| PF-E1102 | Invalid email |
+| PF-E1103 | Invalid telephone |
+| PF-E1104 | Field too long or encoded payload exceeds 60 KB |
+| PF-E2001 | Missing or invalid nonce |
+| PF-E2002 | Honeypot filled |
+| PF-E2003 | Submitted too quickly |
+| PF-E2004 | Invalid signature or expired signed form |
+| PF-E2005 | Attempt quota exhausted |
+| PF-E2006 | Turnstile token missing |
+| PF-E2007 | Turnstile validation rejected |
+| PF-E2008 | Turnstile unavailable; submission accepted within quota |
+| PF-E2009 | Rate-limit database operation failed; submission rejected |
+| PF-E3001 | Lead could not be stored |
+| PF-E3002 | Leads schema creation or upgrade failed |
+| PF-E4001 | Email transport rejected the notification |
+| PF-E4002 | Notification scheduling, data or progress failure |
+| PF-E4003 | Notification task missing or over 15 minutes overdue; administrator warning |
+| PF-E4101 | Webhook request failed or returned a non-2xx status |
 
-Exit code 0 = all green. Run it before shipping any change.
+## Development
 
-## Known limitations, by design
+Run `php tests/smoke.php` for isolated logic tests. For real WordPress/MariaDB tests, including concurrent quota and delivery workers, run `bash tests/run-integration.sh latest` against a disposable database server. Set `PF_DB_HOST`, `PF_DB_PORT`, `PF_DB_USER` and `PF_DB_PASSWORD` as needed (defaults: `127.0.0.1`, `3306`, `root`, empty). The runner creates and removes its own database and temporary WordPress installation; the database account needs create/drop privileges. PHP needs `mysqli`, `mbstring`, `dom` and `zip`; the runner also uses `curl`.
 
-- **Page caches**: a WordPress nonce lives 12–24 h. A form page served from a page cache older than that rejects submissions until the cache refreshes — set a cache timeout under 12 h on pages with a form (e.g. WP Fastest Cache → Cache Timeout).
-- **Reverse proxies**: the client IP is read from `REMOTE_ADDR` only (`X-Forwarded-For` is forgeable). Behind a known proxy, map the real IP with the `petit_form_client_ip` filter, otherwise all visitors share one rate-limit bucket.
-- **Submissions go through `admin-post.php`**: hardening setups that block `/wp-admin/` for anonymous users will block the form too.
-- **Single site** (no multisite support), no entry repopulation after a server-side validation error, double-click = two leads (no JS dedup, by design).
-- **Leads are kept forever** unless deleted manually (GDPR retention setting is on the roadmap).
+GitHub Actions runs lint, smoke and integration tests at the declared minimum versions and on current runtimes, and builds a ZIP from the tested commit. README, code comments and commit messages are written in English.
 
-## Roadmap
+Built-in interface and error messages use English source strings. WordPress can display the bundled French translation according to its active locale. Shortcode labels are configurable.
 
-- v0.3: optional Akismet content check, per-form notification recipient, lead retention setting, WordPress privacy exporters/erasers for GDPR requests
-- Not planned: drag-and-drop builder, conditional logic, payments, multi-step. If you need those, use a vendor plugin — that is their job, not this one's.
+## Built in the coding-agent era
 
-## Maintenance and contributing
+Developed with coding agents. Documented constraints, stable error codes and repeatable tests help humans and agents work on the code. Agent-generated changes still require review and testing.
 
-Petit Form is a personal-use project shared in the open. Maintenance is **slow and best-effort**: I fix what I use, when I use it. Issues and pull requests are read and welcome — just don't expect SLA-grade response times. Security reports: please open a private security advisory on GitHub rather than a public issue.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+Personal-use project with best-effort maintenance. Issues and pull requests are read and welcome; response and fix times are not guaranteed. Report security issues through a [private GitHub security advisory](https://github.com/emirbelkahia/petit-form/security/advisories/new). Licensed under [MIT](LICENSE).

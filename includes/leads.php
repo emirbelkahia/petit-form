@@ -19,39 +19,63 @@ function petit_form_table() {
 	return $wpdb->prefix . 'petitform_leads';
 }
 
+/** Check only during upgrades, admin visits, or a failed insert. */
+function petit_form_table_exists() {
+	global $wpdb;
+	$table = petit_form_table();
+	return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) ) === $table;
+}
+
 /**
  * Insert a lead. Returns the new row id, or WP_Error PF-E3001.
  *
  * @param string $form_id Form identifier.
  * @param array  $values  Sanitized field values.
+ * @param array  $fields  Field definitions used to select Reply-To keys.
  * @return int|WP_Error
  */
-function petit_form_store_lead( $form_id, $values ) {
+function petit_form_store_lead( $form_id, $values, $fields = array() ) {
 	global $wpdb;
 
-	// The data column is TEXT (64 KB). Several long textareas with 4-byte
-	// UTF-8 could exceed it and be silently truncated into invalid JSON.
-	// Reject instead: a lead stored whole is worth more than a giant message.
-	$json = wp_json_encode( $values, JSON_UNESCAPED_UNICODE );
-	if ( strlen( (string) $json ) > 60000 ) {
-		return new WP_Error( 'PF-E1104', 'Encoded payload exceeds 60 KB.' );
+	// ASCII JSON also preserves emoji on legacy three-byte UTF-8 databases.
+	$json = wp_json_encode( $values );
+	if ( false === $json || strlen( $json ) > 60000 ) {
+		return new WP_Error( 'PF-E1104', 'Encoded payload is invalid or exceeds 60 KB.' );
 	}
-
-	$inserted = $wpdb->insert(
-		petit_form_table(),
-		array(
-			'form_id'    => $form_id,
-			'data'       => $json,
-			'ip_hash'    => petit_form_ip_hash(),
-			'created_at' => current_time( 'mysql', true ),
-		),
-		array( '%s', '%s', '%s', '%s' )
+	// Delivery only needs the first populated email/name keys, not the labels.
+	$reply_fields = array();
+	foreach ( $fields as $field ) {
+		if ( in_array( $field['type'], array( 'email', 'name' ), true ) && ! isset( $reply_fields[ $field['type'] ] ) && ! empty( $values[ $field['key'] ] ) ) {
+			$reply_fields[ $field['type'] ] = array( 'key' => $field['key'], 'type' => $field['type'] );
+		}
+	}
+	$row = array(
+		'form_id'      => $form_id,
+		'data'         => $json,
+		'ip_hash'      => petit_form_ip_hash(),
+		'created_at'   => current_time( 'mysql', true ),
+		'notify_data'  => wp_json_encode( array(
+			'fields'  => array_values( $reply_fields ),
+			'pending' => array( 'email' => true, 'webhook' => '' !== (string) get_option( 'petit_form_webhook_url', '' ) ),
+		) ),
+		'notify_after' => time(),
 	);
-
-	if ( false === $inserted ) {
-		return new WP_Error( 'PF-E3001', 'Database insert failed: ' . $wpdb->last_error );
+	$formats = array( '%s', '%s', '%s', '%s', '%s', '%d' );
+	$inserted = $wpdb->insert( petit_form_table(), $row, $formats );
+	if ( false === $inserted && ! petit_form_table_exists() ) {
+		// Repair an absent table once. Existing rows and other DB failures are untouched.
+		require_once PETIT_FORM_DIR . 'includes/activator.php';
+		if ( petit_form_create_table() ) {
+			$inserted = $wpdb->insert( petit_form_table(), $row, $formats );
+		}
 	}
-	return (int) $wpdb->insert_id;
+	if ( false === $inserted ) {
+		update_option( 'petit_form_storage_error', true, false );
+		return new WP_Error( 'PF-E3001', 'Database insert failed.' );
+	}
+	$lead_id = (int) $wpdb->insert_id;
+	delete_option( 'petit_form_storage_error' );
+	return $lead_id;
 }
 
 /**

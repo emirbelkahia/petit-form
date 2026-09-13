@@ -3,8 +3,8 @@
  * Submission pipeline. Order matters: cheap rejections first, storage before
  * side effects, and a post/redirect/get loop so refresh never re-submits.
  *
- * Pipeline: nonce -> honeypot/time-trap -> sanitize + validate -> Turnstile
- * -> rate limit -> store lead -> notify email -> webhook -> redirect.
+ * Pipeline: nonce -> traps -> local validation -> attempt limit -> Turnstile
+ * -> store lead and pending notifications -> integration hook -> redirect.
  *
  * @package PetitForm
  */
@@ -26,7 +26,7 @@ function petit_form_handle_submit() {
 	// never "sanitize" it — any byte difference invalidates the signature.
 	$spec = isset( $_POST['pf_fields'] ) && is_string( $_POST['pf_fields'] ) ? wp_unslash( $_POST['pf_fields'] ) : '';
 
-	// 1. Nonce: proves the request came from our form on this site (CSRF).
+	// 1. WordPress nonce. Guests share a nonce; this is not proof of humanity.
 	if ( ! $form_id || ! isset( $_POST['pf_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['pf_nonce'] ) ), 'petit_form_submit_' . $form_id ) ) {
 		petit_form_log( 'PF-E2001', 'Nonce missing or invalid.' );
 		petit_form_redirect_back( $back, $form_id, 'PF-E2001' );
@@ -50,6 +50,10 @@ function petit_form_handle_submit() {
 	//    The spec is trustworthy: its integrity is proven by the time-trap
 	//    signature verified in step 2.
 	$fields = petit_form_parse_fields( $spec );
+	if ( empty( $fields ) ) {
+		petit_form_log( 'PF-E1001', 'Invalid field definition.' );
+		petit_form_redirect_back( $back, $form_id, 'PF-E1001' );
+	}
 	$values = array();
 	foreach ( $fields as $field ) {
 		$raw    = isset( $_POST[ 'pf_f_' . $field['key'] ] ) && is_string( $_POST[ 'pf_f_' . $field['key'] ] ) ? wp_unslash( $_POST[ 'pf_f_' . $field['key'] ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
@@ -62,41 +66,27 @@ function petit_form_handle_submit() {
 		$values[ $field['key'] ] = $value;
 	}
 
-	// 4. Turnstile (only when configured). After local validation: the
-	//    outbound HTTP call is the most expensive check, keep it for
-	//    plausible submissions only.
-	$turnstile = petit_form_verify_turnstile( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification
-	if ( is_wp_error( $turnstile ) ) {
-		petit_form_log( $turnstile->get_error_code(), $turnstile->get_error_message() );
-		petit_form_redirect_back( $back, $form_id, $turnstile->get_error_code() );
-	}
-
-	// 5. Rate limit AFTER validation: a human fixing a typo must not burn
-	//    their quota; only plausible submissions count.
+	// 4. Consume an attempt before any external request. Local typos do not
+	// count; rejected CAPTCHA tokens do, so invalid tokens cannot flood HTTP.
 	$rate = petit_form_rate_limit_check( $form_id );
 	if ( is_wp_error( $rate ) ) {
 		petit_form_log( $rate->get_error_code(), $rate->get_error_message() );
 		petit_form_redirect_back( $back, $form_id, $rate->get_error_code() );
 	}
 
+	// 5. Optional Turnstile, within the attempt budget.
+	$turnstile = petit_form_verify_turnstile( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification
+	if ( is_wp_error( $turnstile ) ) {
+		petit_form_log( $turnstile->get_error_code(), $turnstile->get_error_message() );
+		petit_form_redirect_back( $back, $form_id, $turnstile->get_error_code() );
+	}
+
 	// 6. Store the lead FIRST: the database is the source of truth,
 	// email and webhook are best-effort side effects.
-	$lead_id = petit_form_store_lead( $form_id, $values );
+	$lead_id = petit_form_store_lead( $form_id, $values, $fields );
 	if ( is_wp_error( $lead_id ) ) {
 		petit_form_log( $lead_id->get_error_code(), $lead_id->get_error_message() );
 		petit_form_redirect_back( $back, $form_id, $lead_id->get_error_code() );
-	}
-
-	// 7. Notification email (failure logged, never blocks the visitor).
-	$mail = petit_form_send_notification( $form_id, $values, $lead_id, $fields );
-	if ( is_wp_error( $mail ) ) {
-		petit_form_log( $mail->get_error_code(), $mail->get_error_message() );
-	}
-
-	// 8. Generic outbound webhook (failure logged, never blocks).
-	$hook = petit_form_send_webhook( $form_id, $values, $lead_id );
-	if ( is_wp_error( $hook ) ) {
-		petit_form_log( $hook->get_error_code(), $hook->get_error_message() );
 	}
 
 	/**
