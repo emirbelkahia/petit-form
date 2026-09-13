@@ -28,9 +28,9 @@ function petit_form_field_types() {
 /**
  * Parse the shortcode "fields" attribute into a normalized definition list.
  *
- * Syntax: fields="name:required, email:required, message:textarea:required, rgpd:checkbox:required:J'accepte..."
+ * Syntax: fields="name:required, email:required, message:textarea:required, consent:checkbox:required:I agree"
  * Each field: "key[:type][:required][:Label]". Type defaults: name->name,
- * email->email, message->textarea, rgpd->checkbox, anything else->text.
+ * email->email, message->textarea, consent->checkbox, anything else->text.
  *
  * @return array<int,array{key:string,type:string,required:bool,label:string}>
  */

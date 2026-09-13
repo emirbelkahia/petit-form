@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Examples:
  *   [petit-form id="contact" fields="name:required, email:required, message:textarea:required"]
- *   [petit-form id="guide" fields="prenom, email:required, telephone, rgpd:checkbox:required:J'accepte la politique de confidentialité" submit="Recevoir le guide"]
+ *   [petit-form id="guide" fields="name, email:required, phone, consent:checkbox:required:I accept the privacy policy" submit="Get the guide"]
  *
  * Attributes:
  *   id      (required) form identifier, used in hooks, rate limiting, leads table
@@ -138,7 +138,7 @@ function petit_form_current_url() {
  *
  * Messages can be overridden without touching this plugin:
  *   add_filter( 'petit_form_user_message', fn( $msg, $code ) =>
- *       'PF-E2005' === $code ? 'Doucement !' : $msg, 10, 2 );
+ *       'PF-E2005' === $code ? 'Please try again later.' : $msg, 10, 2 );
  */
 function petit_form_user_message_for( $code ) {
 	$generic = __( 'Sorry, your message could not be sent. Please try again.', 'petit-form' );

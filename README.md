@@ -126,6 +126,8 @@ Run `php tests/smoke.php` for isolated logic tests. For real WordPress/MariaDB t
 
 GitHub Actions runs lint, smoke and integration tests at the declared minimum versions and on current runtimes, and builds a ZIP from the tested commit. README, code comments and commit messages are written in English.
 
+Built-in interface and error messages use English source strings. WordPress can display the bundled French translation according to its active locale. Shortcode labels are configurable.
+
 ## Built in the coding-agent era
 
 Developed with coding agents. Documented constraints, stable error codes and repeatable tests help humans and agents work on the code. Agent-generated changes still require review and testing.
