@@ -22,19 +22,34 @@ function petit_form_turnstile_enabled() {
 }
 
 /**
+ * Visitor IP. Defaults to REMOTE_ADDR only: X-Forwarded-For is forgeable and
+ * must never be trusted blindly. Sites behind a known reverse proxy can set
+ * the real source with the `petit_form_client_ip` filter.
+ */
+function petit_form_client_ip() {
+	$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+	/**
+	 * Override the client IP source (e.g. read a trusted proxy header).
+	 * @param string $ip IP from REMOTE_ADDR.
+	 */
+	return (string) apply_filters( 'petit_form_client_ip', $ip );
+}
+
+/**
  * Hash the visitor IP with a salt. We never store raw IPs (GDPR), but a
  * stable hash lets us rate-limit and investigate abuse patterns.
  */
 function petit_form_ip_hash() {
-	$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
-	return hash_hmac( 'sha256', $ip, wp_salt( 'nonce' ) );
+	return hash_hmac( 'sha256', petit_form_client_ip(), wp_salt( 'nonce' ) );
 }
 
 /**
- * Sign the time-trap timestamp so bots cannot forge an "old" form.
+ * Sign the time-trap token. The signature binds the timestamp, the form id
+ * AND the field specification: a visitor cannot alter the fields spec
+ * (bypassing "required", changing types) without invalidating the signature.
  */
-function petit_form_time_trap_sign( $timestamp, $form_id ) {
-	return hash_hmac( 'sha256', $timestamp . '|' . $form_id, wp_salt( 'nonce' ) );
+function petit_form_time_trap_sign( $timestamp, $form_id, $spec = '' ) {
+	return hash_hmac( 'sha256', $timestamp . '|' . $form_id . '|' . $spec, wp_salt( 'nonce' ) );
 }
 
 /**
@@ -42,9 +57,9 @@ function petit_form_time_trap_sign( $timestamp, $form_id ) {
  * The honeypot is invisible to humans (CSS + aria-hidden + tabindex) but
  * bots that fill every field will populate it.
  */
-function petit_form_render_trap_fields( $form_id ) {
+function petit_form_render_trap_fields( $form_id, $spec = '' ) {
 	$ts  = time();
-	$sig = petit_form_time_trap_sign( $ts, $form_id );
+	$sig = petit_form_time_trap_sign( $ts, $form_id, $spec );
 	?>
 	<div class="pf-trap" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:1px;width:1px;overflow:hidden;">
 		<label><?php esc_html_e( 'Leave this field empty', 'petit-form' ); ?>
@@ -70,18 +85,23 @@ function petit_form_verify_traps( $post, $form_id ) {
 	}
 
 	// Time-trap: signature must match and elapsed time must be plausible.
-	$ts  = isset( $post['pf_ts'] ) ? (int) $post['pf_ts'] : 0;
-	$sig = isset( $post['pf_sig'] ) ? (string) $post['pf_sig'] : '';
-	if ( ! $ts || ! hash_equals( petit_form_time_trap_sign( $ts, $form_id ), $sig ) ) {
-		return new WP_Error( 'PF-E2004', 'Time-trap signature mismatch.' );
+	// The signature binds ts + form_id + fields spec: tampering with the spec
+	// (removing "required", changing types) invalidates it -> PF-E2004.
+	$ts   = isset( $post['pf_ts'] ) ? (int) $post['pf_ts'] : 0;
+	$sig  = isset( $post['pf_sig'] ) ? (string) $post['pf_sig'] : '';
+	$spec = isset( $post['pf_fields'] ) ? (string) $post['pf_fields'] : '';
+	if ( ! $ts || ! hash_equals( petit_form_time_trap_sign( $ts, $form_id, $spec ), $sig ) ) {
+		return new WP_Error( 'PF-E2004', 'Time-trap signature mismatch (ts, form id or fields spec tampered).' );
 	}
 	$elapsed = time() - $ts;
 	$min     = (int) get_option( 'petit_form_min_seconds', 3 );
 	if ( $elapsed < $min ) {
 		return new WP_Error( 'PF-E2003', sprintf( 'Submitted too fast (%ds < %ds).', $elapsed, $min ) );
 	}
-	if ( $elapsed > 2 * HOUR_IN_SECONDS ) {
-		return new WP_Error( 'PF-E2004', 'Form token expired (>2h old).' );
+	// 24h: aligned with the WordPress nonce lifetime, so a page served from a
+	// page cache keeps a working form as long as its nonce is valid.
+	if ( $elapsed > DAY_IN_SECONDS ) {
+		return new WP_Error( 'PF-E2004', 'Form token expired (>24h old).' );
 	}
 
 	return true;
@@ -136,12 +156,16 @@ function petit_form_verify_turnstile( $post ) {
 			'body'    => array(
 				'secret'   => get_option( 'petit_form_turnstile_secret_key', '' ),
 				'response' => $token,
-				'remoteip' => isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '',
+				'remoteip' => petit_form_client_ip(),
 			),
 		)
 	);
 	if ( is_wp_error( $response ) ) {
 		petit_form_log( 'PF-E2008', 'Turnstile API unreachable, failing open: ' . $response->get_error_message() );
+		return true;
+	}
+	if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+		petit_form_log( 'PF-E2008', 'Turnstile API returned HTTP ' . wp_remote_retrieve_response_code( $response ) . ', failing open.' );
 		return true;
 	}
 	$json = json_decode( wp_remote_retrieve_body( $response ), true );
@@ -154,11 +178,14 @@ function petit_form_verify_turnstile( $post ) {
 
 /**
  * Central security logger. One line, one code, grep-able in five years.
- * Never logs field values (PII); only codes and technical context.
+ * Always on: only codes and technical context are logged, never field
+ * values (PII), so production logging is safe. Define the constant
+ * PETIT_FORM_LOG to false in wp-config.php to silence it.
  */
 function petit_form_log( $code, $message ) {
-	if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-		error_log( sprintf( '[petit-form %s] %s (form=%s ip=%s)', $code, $message, isset( $_POST['pf_form_id'] ) ? sanitize_text_field( wp_unslash( $_POST['pf_form_id'] ) ) : '?', petit_form_ip_hash() ) );
+	if ( defined( 'PETIT_FORM_LOG' ) && ! PETIT_FORM_LOG ) {
+		return;
 	}
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+	error_log( sprintf( '[petit-form %s] %s (form=%s ip=%s)', $code, $message, isset( $_POST['pf_form_id'] ) ? sanitize_text_field( wp_unslash( $_POST['pf_form_id'] ) ) : '?', petit_form_ip_hash() ) );
 }

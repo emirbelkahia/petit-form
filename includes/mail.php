@@ -20,8 +20,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @return true|WP_Error
  */
-function petit_form_send_notification( $form_id, $values, $lead_id = 0 ) {
-	$to = (string) get_option( 'petit_form_notify_email', get_option( 'admin_email' ) );
+function petit_form_send_notification( $form_id, $values, $lead_id = 0, $fields = array() ) {
+	$to = (string) get_option( 'petit_form_notify_email', '' );
+	if ( '' === $to ) {
+		$to = (string) get_option( 'admin_email' ); // fallback if the option was saved empty
+	}
 	if ( '' === $to || ! is_email( $to ) ) {
 		return new WP_Error( 'PF-E4001', 'Notification recipient is not a valid email address.' );
 	}
@@ -42,9 +45,21 @@ function petit_form_send_notification( $form_id, $values, $lead_id = 0 ) {
 	$body    = implode( "\n", $lines );
 
 	$headers = array( 'Content-Type: text/plain; charset=UTF-8' );
-	if ( ! empty( $values['email'] ) && is_email( $values['email'] ) ) {
-		$reply_name = isset( $values['name'] ) ? petit_form_strip_crlf( $values['name'] ) : '';
-		$headers[]  = 'Reply-To: ' . ( $reply_name ? $reply_name . ' ' : '' ) . '<' . $values['email'] . '>';
+
+	// Reply-To from the first email-typed and name-typed fields of the spec,
+	// whatever their keys ("email", "courriel", "name", "prenom"...).
+	$reply_email = '';
+	$reply_name  = '';
+	foreach ( (array) $fields as $field ) {
+		if ( 'email' === $field['type'] && ! $reply_email && ! empty( $values[ $field['key'] ] ) && is_email( $values[ $field['key'] ] ) ) {
+			$reply_email = $values[ $field['key'] ];
+		}
+		if ( 'name' === $field['type'] && ! $reply_name && ! empty( $values[ $field['key'] ] ) ) {
+			$reply_name = petit_form_strip_crlf( $values[ $field['key'] ] );
+		}
+	}
+	if ( $reply_email ) {
+		$headers[] = 'Reply-To: ' . ( $reply_name ? $reply_name . ' ' : '' ) . '<' . $reply_email . '>';
 	}
 
 	$sent = wp_mail( $to, $subject, $body, $headers );

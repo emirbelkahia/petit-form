@@ -75,6 +75,10 @@ function wp_unslash( $value ) {
 	return $value; // tests never pass slashed data
 }
 
+function apply_filters( $hook, $value ) {
+	return $value; // no filters registered in tests
+}
+
 function wp_salt( $scheme = 'auth' ) {
 	return 'test-salt-for-smoke-tests';
 }
@@ -94,6 +98,12 @@ $GLOBALS['pf_test_options'] = array(
 	'petit_form_rate_window' => 3600,
 	'petit_form_min_seconds' => 3,
 );
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
+function remove_accents( $str ) {
+	return iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', (string) $str );
+}
 function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['pf_test_options'] ) ? $GLOBALS['pf_test_options'][ $key ] : $default;
 }
@@ -133,6 +143,11 @@ ok( 'checkbox' === $fields[3]['type'] && "J'accepte" === $fields[3]['label'], 'r
 $fields = petit_form_parse_fields( '' );
 ok( 0 === count( $fields ), 'empty spec yields no fields' );
 
+$fields = petit_form_parse_fields( 'prénom:required' );
+ok( 'prenom' === $fields[0]['key'], 'prénom key becomes prenom (accents removed)' );
+ok( 'Prénom' === $fields[0]['label'], 'label keeps the accent' );
+ok( 'name' === $fields[0]['type'], 'prenom maps to name type' );
+
 echo "sanitization\n";
 
 ok( 'alert(1)' === petit_form_sanitize_value( '<script>alert(1)</script>', 'text' ), 'text: tags stripped' );
@@ -156,33 +171,51 @@ ok( true === petit_form_validate_value( $tel_field, '06 12 34 56 78' ), 'FR mobi
 $err = petit_form_validate_value( $tel_field, 'appelez-moi' );
 ok( is_wp_error( $err ) && 'PF-E1103' === $err->get_error_code(), 'garbage tel -> PF-E1103' );
 
+$text_field = array( 'key' => 'sujet', 'type' => 'text', 'required' => false, 'label' => 'Sujet' );
+$err        = petit_form_validate_value( $text_field, str_repeat( 'a', 256 ) );
+ok( is_wp_error( $err ) && 'PF-E1104' === $err->get_error_code(), '256-char text -> PF-E1104' );
+ok( true === petit_form_validate_value( $text_field, str_repeat( 'a', 255 ) ), '255-char text passes' );
+
 // ---------------------------------------------------------------------------
 // security.php (traps + rate limiting; Turnstile disabled in tests)
 // ---------------------------------------------------------------------------
 
 echo "honeypot\n";
 
-$ts  = time() - 30;
-$sig = petit_form_time_trap_sign( $ts, 'contact' );
-ok( true === petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $ts, 'pf_sig' => $sig ), 'contact' ), 'empty honeypot + valid trap passes' );
+$spec = 'name:required, email:required';
+$ts   = time() - 30;
+$sig  = petit_form_time_trap_sign( $ts, 'contact', $spec );
+$post = array( 'pf_company_url' => '', 'pf_ts' => $ts, 'pf_sig' => $sig, 'pf_fields' => $spec );
+ok( true === petit_form_verify_traps( $post, 'contact' ), 'empty honeypot + valid trap passes' );
 
-$err = petit_form_verify_traps( array( 'pf_company_url' => 'http://spam.example', 'pf_ts' => $ts, 'pf_sig' => $sig ), 'contact' );
+$err = petit_form_verify_traps( array_merge( $post, array( 'pf_company_url' => 'http://spam.example' ) ), 'contact' );
 ok( is_wp_error( $err ) && 'PF-E2002' === $err->get_error_code(), 'filled honeypot -> PF-E2002' );
 
 echo "time-trap\n";
 
 $fast_ts  = time();
-$fast_sig = petit_form_time_trap_sign( $fast_ts, 'contact' );
-$err      = petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $fast_ts, 'pf_sig' => $fast_sig ), 'contact' );
+$fast_sig = petit_form_time_trap_sign( $fast_ts, 'contact', $spec );
+$err      = petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $fast_ts, 'pf_sig' => $fast_sig, 'pf_fields' => $spec ), 'contact' );
 ok( is_wp_error( $err ) && 'PF-E2003' === $err->get_error_code(), 'submitted in <3s -> PF-E2003' );
 
-$err = petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $ts, 'pf_sig' => 'forged' ), 'contact' );
+$err = petit_form_verify_traps( array_merge( $post, array( 'pf_sig' => 'forged' ) ), 'contact' );
 ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'forged signature -> PF-E2004' );
 
-$old_ts  = time() - 3 * 3600;
-$old_sig = petit_form_time_trap_sign( $old_ts, 'contact' );
-$err     = petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $old_ts, 'pf_sig' => $old_sig ), 'contact' );
-ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'stale form (>2h) -> PF-E2004' );
+$old_ts  = time() - 25 * 3600;
+$old_sig = petit_form_time_trap_sign( $old_ts, 'contact', $spec );
+$err     = petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $old_ts, 'pf_sig' => $old_sig, 'pf_fields' => $spec ), 'contact' );
+ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'stale form (>24h) -> PF-E2004' );
+
+$cache_ts  = time() - 3 * 3600;
+$cache_sig = petit_form_time_trap_sign( $cache_ts, 'contact', $spec );
+ok( true === petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $cache_ts, 'pf_sig' => $cache_sig, 'pf_fields' => $spec ), 'contact' ), 'page-cache scenario: 3h-old form still valid' );
+
+echo "fields spec tampering\n";
+
+$err = petit_form_verify_traps( array_merge( $post, array( 'pf_fields' => 'email' ) ), 'contact' );
+ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'spec stripped of required -> PF-E2004' );
+$err = petit_form_verify_traps( array_merge( $post, array( 'pf_fields' => '' ) ), 'contact' );
+ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'empty spec -> PF-E2004' );
 
 echo "rate limiting\n";
 

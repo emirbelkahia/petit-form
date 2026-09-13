@@ -34,3 +34,6 @@ $options = array(
 foreach ( $options as $option ) {
 	delete_option( $option );
 }
+
+// Rate-limit transients.
+$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_pf\_rl\_%' OR option_name LIKE '\_transient\_timeout\_pf\_rl\_%'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared

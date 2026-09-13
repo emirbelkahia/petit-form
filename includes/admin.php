@@ -39,7 +39,6 @@ function petit_form_admin_menu() {
  */
 function petit_form_register_settings() {
 	$string = array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field', 'default' => '' );
-	$int    = array( 'type' => 'integer', 'sanitize_callback' => 'absint', 'default' => 0 );
 
 	register_setting( 'petit_form', 'petit_form_notify_email', array( 'type' => 'string', 'sanitize_callback' => 'sanitize_email', 'default' => '' ) );
 	register_setting( 'petit_form', 'petit_form_webhook_url', array( 'type' => 'string', 'sanitize_callback' => 'esc_url_raw', 'default' => '' ) );
@@ -47,9 +46,11 @@ function petit_form_register_settings() {
 	register_setting( 'petit_form', 'petit_form_webhook_header_value', $string );
 	register_setting( 'petit_form', 'petit_form_turnstile_site_key', $string );
 	register_setting( 'petit_form', 'petit_form_turnstile_secret_key', $string );
-	register_setting( 'petit_form', 'petit_form_rate_max', array( 'type' => 'integer', 'sanitize_callback' => 'absint', 'default' => 5 ) );
-	register_setting( 'petit_form', 'petit_form_rate_window', array( 'type' => 'integer', 'sanitize_callback' => 'absint', 'default' => HOUR_IN_SECONDS ) );
-	register_setting( 'petit_form', 'petit_form_min_seconds', array( 'type' => 'integer', 'sanitize_callback' => 'absint', 'default' => 3 ) );
+	// Bounded: rate_window = 0 would create non-expiring transients (permanent
+	// block); rate_max = 0 would allow exactly one submission per window.
+	register_setting( 'petit_form', 'petit_form_rate_max', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 1, absint( $v ) ); }, 'default' => 5 ) );
+	register_setting( 'petit_form', 'petit_form_rate_window', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return max( 60, absint( $v ) ); }, 'default' => HOUR_IN_SECONDS ) );
+	register_setting( 'petit_form', 'petit_form_min_seconds', array( 'type' => 'integer', 'sanitize_callback' => function ( $v ) { return min( 60, absint( $v ) ); }, 'default' => 3 ) );
 	register_setting( 'petit_form', 'petit_form_delete_data_on_uninstall', array( 'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false ) );
 }
 
@@ -109,7 +110,7 @@ function petit_form_leads_page() {
 				<?php $data = json_decode( $lead->data, true ); ?>
 				<tr>
 					<td><?php echo (int) $lead->id; ?></td>
-					<td><?php echo esc_html( $lead->created_at ); ?></td>
+					<td><?php echo esc_html( get_date_from_gmt( $lead->created_at, 'd/m/Y H:i' ) ); ?></td>
 					<td><code><?php echo esc_html( $lead->form_id ); ?></code></td>
 					<td>
 						<?php foreach ( (array) $data as $k => $v ) : ?>
@@ -123,24 +124,25 @@ function petit_form_leads_page() {
 							'petit_form_delete_lead_' . (int) $lead->id
 						);
 						?>
-						<a href="<?php echo esc_url( $del_url ); ?>" class="button button-small" onclick="return confirm('<?php esc_attr_e( 'Delete this lead permanently?', 'petit-form' ); ?>');"><?php esc_html_e( 'Delete', 'petit-form' ); ?></a>
+						<a href="<?php echo esc_url( $del_url ); ?>" class="button button-small" onclick="return confirm('<?php echo esc_js( __( 'Delete this lead permanently?', 'petit-form' ) ); ?>');"><?php esc_html_e( 'Delete', 'petit-form' ); ?></a>
 					</td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>
 		</table>
 
-		<?php if ( $pages > 1 ) : ?>
-			<p class="tablenav">
-				<?php for ( $i = 1; $i <= $pages; $i++ ) : ?>
-					<?php if ( $i === $paged ) : ?>
-						<strong><?php echo (int) $i; ?></strong>
-					<?php else : ?>
-						<a href="<?php echo esc_url( admin_url( 'admin.php?page=petit-form-leads&paged=' . $i . ( $filter ? '&pf_filter=' . $filter : '' ) ) ); ?>"><?php echo (int) $i; ?></a>
-					<?php endif; ?>
-				<?php endfor; ?>
-			</p>
-		<?php endif; ?>
+		<?php
+		if ( $pages > 1 ) {
+			echo '<p class="tablenav">' . paginate_links( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- paginate_links returns safe HTML
+				array(
+					'base'    => admin_url( 'admin.php?page=petit-form-leads' . ( $filter ? '&pf_filter=' . $filter : '' ) . '&paged=%#%' ),
+					'format'  => '',
+					'current' => $paged,
+					'total'   => $pages,
+				)
+			) . '</p>';
+		}
+		?>
 	</div>
 	<?php
 }
@@ -157,7 +159,10 @@ function petit_form_known_form_ids() {
 }
 
 /**
- * CSV export. Capability + nonce checked, streams and exits.
+ * CSV export. Capability + nonce checked. Streams in 1 000-row batches
+ * (memory-safe), with a UTF-8 BOM so Excel renders accents, flattened
+ * "key: value" data readable by non-technical users, and CSV formula
+ * injection neutralized.
  */
 function petit_form_export_csv() {
 	if ( ! current_user_can( 'manage_options' ) ) {
@@ -167,19 +172,50 @@ function petit_form_export_csv() {
 		wp_die( esc_html__( 'Invalid nonce (PF-E2001).', 'petit-form' ) );
 	}
 	$filter = isset( $_GET['pf_filter'] ) ? sanitize_key( wp_unslash( $_GET['pf_filter'] ) ) : '';
-	$leads  = petit_form_get_all_leads_for_export( $filter );
 
 	nocache_headers();
 	header( 'Content-Type: text/csv; charset=utf-8' );
 	header( 'Content-Disposition: attachment; filename="petit-form-leads-' . gmdate( 'Y-m-d' ) . '.csv"' );
 
 	$out = fopen( 'php://output', 'w' );
-	fputcsv( $out, array( 'id', 'created_at_utc', 'form', 'data_json' ) );
-	foreach ( $leads as $lead ) {
-		fputcsv( $out, array( $lead->id, $lead->created_at, $lead->form_id, $lead->data ) );
-	}
+	fwrite( $out, "\xEF\xBB\xBF" ); // UTF-8 BOM for Excel
+	petit_form_csv_row( $out, array( 'id', 'date', 'form', 'data' ) );
+	petit_form_each_lead_for_export(
+		$filter,
+		function ( $lead ) use ( $out ) {
+			$data  = json_decode( $lead->data, true );
+			$flat  = array();
+			foreach ( (array) $data as $k => $v ) {
+				$flat[] = $k . ': ' . $v;
+			}
+			petit_form_csv_row(
+				$out,
+				array(
+					$lead->id,
+					get_date_from_gmt( $lead->created_at, 'd/m/Y H:i' ),
+					$lead->form_id,
+					implode( ' | ', $flat ),
+				)
+			);
+		}
+	);
 	fclose( $out );
 	exit;
+}
+
+/**
+ * Write one CSV row, PHP 8.4-safe (explicit escape) and formula-injection
+ * safe (cells starting with = + - @ are prefixed with a single quote).
+ */
+function petit_form_csv_row( $out, $row ) {
+	$row = array_map(
+		function ( $cell ) {
+			$cell = (string) $cell;
+			return preg_match( '/^[=+\-@\t\r]/', $cell ) ? "'" . $cell : $cell;
+		},
+		$row
+	);
+	fputcsv( $out, $row, ',', '"', '' );
 }
 
 /**
@@ -193,9 +229,11 @@ function petit_form_delete_lead_action() {
 	if ( ! $lead_id || ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'petit_form_delete_lead_' . $lead_id ) ) {
 		wp_die( esc_html__( 'Invalid nonce (PF-E2001).', 'petit-form' ) );
 	}
-	petit_form_delete_lead( $lead_id );
-	set_transient( 'petit_form_notice', 'deleted', 30 );
-	wp_safe_redirect( admin_url( 'admin.php?page=petit-form-leads' ) );
+	if ( petit_form_delete_lead( $lead_id ) ) {
+		wp_safe_redirect( admin_url( 'admin.php?page=petit-form-leads&pf_notice=deleted' ) );
+	} else {
+		wp_safe_redirect( admin_url( 'admin.php?page=petit-form-leads&pf_notice=notfound' ) );
+	}
 	exit;
 }
 
@@ -264,12 +302,16 @@ function petit_form_settings_page() {
 }
 
 /**
- * One-shot admin notices (lead deleted, etc.).
+ * One-shot admin notices, carried by the redirect URL (no transient).
  */
 function petit_form_admin_notices() {
-	$notice = get_transient( 'petit_form_notice' );
+	if ( ! isset( $_GET['pf_notice'] ) || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	$notice = sanitize_key( wp_unslash( $_GET['pf_notice'] ) );
 	if ( 'deleted' === $notice ) {
-		delete_transient( 'petit_form_notice' );
 		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Lead deleted.', 'petit-form' ) . '</p></div>';
+	} elseif ( 'notfound' === $notice ) {
+		echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__( 'Lead not found (already deleted?).', 'petit-form' ) . '</p></div>';
 	}
 }

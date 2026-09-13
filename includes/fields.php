@@ -41,7 +41,9 @@ function petit_form_parse_fields( $spec ) {
 		if ( empty( $parts[0] ) ) {
 			continue;
 		}
-		$key = sanitize_key( $parts[0] );
+		$raw_key = $parts[0];
+		// remove_accents before sanitize_key so "prénom" becomes "prenom", not "prnom".
+		$key = sanitize_key( remove_accents( $raw_key ) );
 
 		$type     = null;
 		$required = false;
@@ -59,7 +61,8 @@ function petit_form_parse_fields( $spec ) {
 			$type = petit_form_default_type_for( $key );
 		}
 		if ( null === $label ) {
-			$label = ucfirst( str_replace( array( '_', '-' ), ' ', $key ) );
+			// Label from the RAW key (before sanitize_key) to keep accents.
+			$label = ucfirst( str_replace( array( '_', '-' ), ' ', $raw_key ) );
 		}
 		$fields[] = array(
 			'key'      => $key,
@@ -81,15 +84,34 @@ function petit_form_default_type_for( $key ) {
 		'prenom'    => 'name',
 		'email'     => 'email',
 		'e-mail'    => 'email',
+		'courriel'  => 'email',
 		'tel'       => 'tel',
 		'phone'     => 'tel',
 		'telephone' => 'tel',
+		'portable'  => 'tel',
 		'message'   => 'textarea',
 		'rgpd'      => 'checkbox',
 		'gdpr'      => 'checkbox',
 		'consent'   => 'checkbox',
 	);
 	return isset( $map[ $key ] ) ? $map[ $key ] : 'text';
+}
+
+/**
+ * Maximum length per field type. The `data` column is TEXT (64 KB): without
+ * caps, a huge payload would be silently truncated by MySQL and stored as
+ * invalid JSON. Caps keep every stored lead intact and readable.
+ */
+function petit_form_max_length_for( $type ) {
+	$map = array(
+		'text'     => 255,
+		'name'     => 255,
+		'email'    => 255,
+		'tel'      => 32,
+		'textarea' => 10000,
+		'checkbox' => 1,
+	);
+	return isset( $map[ $type ] ) ? $map[ $type ] : 255;
 }
 
 /**
@@ -122,20 +144,24 @@ function petit_form_sanitize_value( $value, $type ) {
 function petit_form_validate_value( $field, $value ) {
 	$label = $field['label'];
 	if ( $field['required'] && '' === $value ) {
-		return new WP_Error( 'PF-E1101', sprintf( 'Required field "%s" is empty.', $field['key'] ), array( 'label' => $label ) );
+		return new WP_Error( 'PF-E1101', sprintf( 'Required field "%s" is empty.', $field['key'] ) );
 	}
 	if ( '' === $value ) {
 		return true; // optional and empty: fine
 	}
+	$max = petit_form_max_length_for( $field['type'] );
+	if ( mb_strlen( $value ) > $max ) {
+		return new WP_Error( 'PF-E1104', sprintf( 'Field "%s" exceeds %d chars.', $field['key'], $max ) );
+	}
 	switch ( $field['type'] ) {
 		case 'email':
 			if ( ! is_email( $value ) ) {
-				return new WP_Error( 'PF-E1102', sprintf( 'Invalid email in field "%s".', $field['key'] ), array( 'label' => $label ) );
+				return new WP_Error( 'PF-E1102', sprintf( 'Invalid email in field "%s".', $field['key'] ) );
 			}
 			break;
 		case 'tel':
 			if ( ! preg_match( '/^\+?[0-9().\-\s]{6,20}$/', $value ) ) {
-				return new WP_Error( 'PF-E1103', sprintf( 'Invalid phone in field "%s".', $field['key'] ), array( 'label' => $label ) );
+				return new WP_Error( 'PF-E1103', sprintf( 'Invalid phone in field "%s".', $field['key'] ) );
 			}
 			break;
 	}

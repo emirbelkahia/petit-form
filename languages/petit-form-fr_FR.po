@@ -158,3 +158,6 @@ msgstr "Supprimer la table des leads et tous les réglages à la désinstallatio
 
 msgid "Lead deleted."
 msgstr "Lead supprimé."
+
+msgid "Lead not found (already deleted?)."
+msgstr "Lead introuvable (déjà supprimé ?)."

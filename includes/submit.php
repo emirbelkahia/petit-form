@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * admin-post.php handler for every Petit Form submission.
  */
 function petit_form_handle_submit() {
-	$form_id = isset( $_POST['pf_form_id'] ) ? sanitize_key( wp_unslash( $_POST['pf_form_id'] ) ) : '';
+	$form_id = isset( $_POST['pf_form_id'] ) ? substr( sanitize_key( wp_unslash( $_POST['pf_form_id'] ) ), 0, 64 ) : '';
 	$back    = isset( $_POST['pf_back'] ) ? esc_url_raw( wp_unslash( $_POST['pf_back'] ) ) : home_url( '/' );
 	$spec    = isset( $_POST['pf_fields'] ) ? sanitize_text_field( wp_unslash( $_POST['pf_fields'] ) ) : '';
 
@@ -34,21 +34,16 @@ function petit_form_handle_submit() {
 		petit_form_redirect_back( $back, $form_id, $traps->get_error_code() );
 	}
 
-	// 3. Rate limit.
-	$rate = petit_form_rate_limit_check( $form_id );
-	if ( is_wp_error( $rate ) ) {
-		petit_form_log( $rate->get_error_code(), $rate->get_error_message() );
-		petit_form_redirect_back( $back, $form_id, $rate->get_error_code() );
-	}
-
-	// 4. Turnstile (only when configured).
+	// 3. Turnstile (only when configured).
 	$turnstile = petit_form_verify_turnstile( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification
 	if ( is_wp_error( $turnstile ) ) {
 		petit_form_log( $turnstile->get_error_code(), $turnstile->get_error_message() );
 		petit_form_redirect_back( $back, $form_id, $turnstile->get_error_code() );
 	}
 
-	// 5. Sanitize + validate every declared field. Unknown POST keys are ignored.
+	// 4. Sanitize + validate every declared field. Unknown POST keys are ignored.
+	//    The spec is trustworthy: its integrity is proven by the time-trap
+	//    signature verified in step 2.
 	$fields = petit_form_parse_fields( $spec );
 	$values = array();
 	foreach ( $fields as $field ) {
@@ -62,6 +57,14 @@ function petit_form_handle_submit() {
 		$values[ $field['key'] ] = $value;
 	}
 
+	// 5. Rate limit AFTER validation: a human fixing a typo must not burn
+	//    their quota; only plausible submissions count.
+	$rate = petit_form_rate_limit_check( $form_id );
+	if ( is_wp_error( $rate ) ) {
+		petit_form_log( $rate->get_error_code(), $rate->get_error_message() );
+		petit_form_redirect_back( $back, $form_id, $rate->get_error_code() );
+	}
+
 	// 6. Store the lead FIRST: the database is the source of truth,
 	// email and webhook are best-effort side effects.
 	$lead_id = petit_form_store_lead( $form_id, $values );
@@ -71,7 +74,7 @@ function petit_form_handle_submit() {
 	}
 
 	// 7. Notification email (failure logged, never blocks the visitor).
-	$mail = petit_form_send_notification( $form_id, $values, $lead_id );
+	$mail = petit_form_send_notification( $form_id, $values, $lead_id, $fields );
 	if ( is_wp_error( $mail ) ) {
 		petit_form_log( $mail->get_error_code(), $mail->get_error_message() );
 	}

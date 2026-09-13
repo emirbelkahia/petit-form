@@ -80,12 +80,38 @@ function petit_form_get_leads( $form_id = '', $limit = 50, $offset = 0 ) {
 }
 
 /**
- * Fetch every lead for export (CSV). Capped at 50 000 rows as a safety rail.
+ * Stream leads for export in batches of 1 000 (keyset pagination), so a
+ * large table never blows the memory limit on shared hosting.
  *
- * @return array<int,object>
+ * @param string   $form_id  Optional form filter.
+ * @param callable $callback Receives one lead object per row.
  */
-function petit_form_get_all_leads_for_export( $form_id = '' ) {
-	return petit_form_get_leads( $form_id, 50000, 0 );
+function petit_form_each_lead_for_export( $form_id, $callback ) {
+	global $wpdb;
+	$table   = petit_form_table();
+	$last_id = PHP_INT_MAX;
+
+	while ( true ) {
+		if ( '' !== $form_id ) {
+			$batch = $wpdb->get_results(
+				$wpdb->prepare( "SELECT * FROM {$table} WHERE form_id = %s AND id < %d ORDER BY id DESC LIMIT 1000", $form_id, $last_id ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			);
+		} else {
+			$batch = $wpdb->get_results(
+				$wpdb->prepare( "SELECT * FROM {$table} WHERE id < %d ORDER BY id DESC LIMIT 1000", $last_id ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			);
+		}
+		if ( empty( $batch ) ) {
+			return;
+		}
+		foreach ( $batch as $lead ) {
+			$callback( $lead );
+		}
+		$last_id = (int) end( $batch )->id;
+		if ( count( $batch ) < 1000 ) {
+			return;
+		}
+	}
 }
 
 /**

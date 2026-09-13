@@ -8,7 +8,7 @@ Built for sites that need a contact or capture form that **just works and keeps 
 
 - WPForms Lite **does not store submissions** in the free tier — your leads only exist in an email.
 - Vendor plugins ship dashboard widgets, upsell notices, their own CSS/JS and tracking.
-- Petit Form is ~1 000 lines you can read in one sitting. Every lead is a row in your database. That is the whole product.
+- Petit Form is ~1 300 lines of PHP you can read in one sitting. Every lead is a row in your database. That is the whole product.
 
 ## Features
 
@@ -45,15 +45,15 @@ Useful attributes: `submit="Button label"`, `success="Thank-you message"`.
 |---|---|---|
 | WordPress nonce | Yes | CSRF — forged requests from another site |
 | Honeypot field | Yes | Dumb bots that fill every field (~85 % of bot spam) |
-| Signed time-trap | Yes | Bots submitting in under 3 s, replayed/forged form tokens |
-| Rate limiting | Yes | Floods: 5 submissions/hour per IP per form (configurable) |
+| Signed time-trap | Yes | Bots submitting in under 3 s; the signature binds timestamp + form id + **field spec**, so visitors cannot tamper with `required` flags or field types. Valid 24 h (aligned with the nonce lifetime) so pages served from a page cache keep working |
+| Rate limiting | Yes | Floods: 5 validated submissions/hour per IP per form (configurable, sliding window) |
 | Turnstile | Optional | Persistent/targeted bots. Enable in Settings with Cloudflare keys |
-| Sanitization + validation | Yes | XSS payloads, malformed emails/phones |
+| Sanitization + validation | Yes | XSS payloads, malformed emails/phones, over-long values |
 | Prepared statements | Yes | SQL injection |
 | Escaped output | Yes | Stored XSS in the admin leads list |
 | Capability checks + nonces on admin actions | Yes | The classic "CSRF on bulk delete" CVE pattern |
 
-Error handling: every rejection carries a stable code (`PF-Exxxx`), shown to the visitor next to a friendly message and written to the PHP error log with technical context (never field values). Field values are never logged.
+Error handling: every rejection carries a stable code (`PF-Exxxx`), shown to the visitor next to a friendly message and written to the PHP error log with technical context (never field values — safe to log in production). Set `define( 'PETIT_FORM_LOG', false );` in `wp-config.php` to silence logging.
 
 | Code | Meaning |
 |---|---|
@@ -108,9 +108,17 @@ php tests/smoke.php
 
 Exit code 0 = all green. Run it before shipping any change.
 
+## Known limitations, by design
+
+- **Page caches**: the anti-bot token lives 24 h (same as the WordPress nonce). A page cached longer than that will reject submissions until the cache refreshes — exclude long-lived form pages from aggressive caching.
+- **Reverse proxies**: the client IP is read from `REMOTE_ADDR` only (`X-Forwarded-For` is forgeable). Behind a known proxy, map the real IP with the `petit_form_client_ip` filter, otherwise all visitors share one rate-limit bucket.
+- **Submissions go through `admin-post.php`**: hardening setups that block `/wp-admin/` for anonymous users will block the form too.
+- **Single site** (no multisite support), no entry repopulation after a server-side validation error, double-click = two leads (no JS dedup, by design).
+- **Leads are kept forever** unless deleted manually (GDPR retention setting is on the roadmap).
+
 ## Roadmap
 
-- v0.2: optional Akismet content check, per-form notification recipient
+- v0.3: optional Akismet content check, per-form notification recipient, lead retention setting
 - Not planned: drag-and-drop builder, conditional logic, payments, multi-step. If you need those, use a vendor plugin — that is their job, not this one's.
 
 ## License

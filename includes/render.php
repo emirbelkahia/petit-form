@@ -54,8 +54,11 @@ function petit_form_shortcode( $atts ) {
 	petit_form_enqueue_assets();
 
 	// Status after redirect (success / error code + field errors).
+	// pf_error is whitelisted to the PF-Exxxx shape: a forged link must not
+	// display attacker-controlled text inside the form (phishing).
 	$status   = isset( $_GET['pf_status'] ) ? sanitize_key( wp_unslash( $_GET['pf_status'] ) ) : '';
 	$err_code = isset( $_GET['pf_error'] ) ? sanitize_text_field( wp_unslash( $_GET['pf_error'] ) ) : '';
+	$err_code = preg_match( '/^PF-E\d{4}$/', $err_code ) ? $err_code : '';
 	$err_for  = isset( $_GET['pf_form'] ) ? sanitize_key( wp_unslash( $_GET['pf_form'] ) ) : '';
 	$is_ours  = ( $err_for === $form_id );
 
@@ -73,10 +76,10 @@ function petit_form_shortcode( $atts ) {
 		<?php endif; ?>
 
 		<?php foreach ( $fields as $field ) : ?>
-			<?php petit_form_render_field( $field ); ?>
+			<?php petit_form_render_field( $field, $form_id ); ?>
 		<?php endforeach; ?>
 
-		<?php petit_form_render_trap_fields( $form_id ); ?>
+		<?php petit_form_render_trap_fields( $form_id, $atts['fields'] ); ?>
 		<input type="hidden" name="action" value="petit_form_submit" />
 		<input type="hidden" name="pf_form_id" value="<?php echo esc_attr( $form_id ); ?>" />
 		<input type="hidden" name="pf_fields" value="<?php echo esc_attr( $atts['fields'] ); ?>" />
@@ -94,10 +97,11 @@ function petit_form_shortcode( $atts ) {
 }
 
 /**
- * Render a single field row (label + input), fully escaped.
+ * Render a single field row (label + input), fully escaped. The element id
+ * is prefixed with the form id so two forms on one page never collide.
  */
-function petit_form_render_field( $field ) {
-	$id       = 'pf-' . $field['key'];
+function petit_form_render_field( $field, $form_id = '' ) {
+	$id       = 'pf-' . ( $form_id ? $form_id . '-' : '' ) . $field['key'];
 	$required = $field['required'] ? ' required aria-required="true"' : '';
 	?>
 	<p class="pf-field pf-field-<?php echo esc_attr( $field['type'] ); ?>">
@@ -118,11 +122,12 @@ function petit_form_render_field( $field ) {
 }
 
 /**
- * Current page URL, for the post/redirect/get loop.
+ * Current page path, for the post/redirect/get loop. Relative on purpose:
+ * home_url() + REQUEST_URI would duplicate the path on subdirectory
+ * installs, and wp_safe_redirect accepts relative paths.
  */
 function petit_form_current_url() {
-	$uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
-	return home_url( $uri );
+	return isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
 }
 
 /**
