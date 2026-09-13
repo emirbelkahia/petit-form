@@ -31,7 +31,7 @@ Petit Form was created with coding agents, and is designed to be **maintained an
 
 - Shortcode forms with declarative fields: text, name, email, tel, textarea, checkbox (GDPR consent)
 - **Leads stored in your database** (`wp_petitform_leads`) with an admin list, per-form filter and CSV export
-- Notification email (best-effort; the database is the source of truth)
+- Notification email with Reply-To set to the visitor, via `wp_mail()` — Petit Form has **no mail mechanism of its own**: it uses your site's existing mail stack (host sendmail by default, or any SMTP plugin you install), and the database remains the source of truth if email fails
 - Generic outbound **webhook** (JSON POST, optional auth header) for CRMs and automation
 - Developer action hook `petit_form_lead_created` for site-specific integrations
 - Security: nonce, honeypot, signed time-trap, per-IP/per-form rate limiting, per-type sanitization, prepared statements, escaped output, capability checks on every admin action
