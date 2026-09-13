@@ -13,21 +13,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Whether the current page renders a Petit Form (asset loading flag).
- */
-function petit_form_assets_needed() {
-	return (bool) apply_filters( 'petit_form_assets_needed', get_transient( 'pf_assets_' . get_the_ID() ) );
-}
-
-/**
- * Mark the current page as containing a form. Stored in a transient so the
- * wp_enqueue_scripts hook (which runs before shortcodes render) can know.
- */
-function petit_form_mark_assets_needed() {
-	set_transient( 'pf_assets_' . get_the_ID(), 1, HOUR_IN_SECONDS );
-}
-
-/**
  * Whether Cloudflare Turnstile is configured (both keys present).
  */
 function petit_form_turnstile_enabled() {

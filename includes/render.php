@@ -51,7 +51,7 @@ function petit_form_shortcode( $atts ) {
 			: '';
 	}
 
-	petit_form_mark_assets_needed();
+	petit_form_enqueue_assets();
 
 	// Status after redirect (success / error code + field errors).
 	$status   = isset( $_GET['pf_status'] ) ? sanitize_key( wp_unslash( $_GET['pf_status'] ) ) : '';
@@ -61,7 +61,7 @@ function petit_form_shortcode( $atts ) {
 
 	ob_start();
 	?>
-	<form class="petit-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" novalidate>
+	<form class="petit-form" id="pf-<?php echo esc_attr( $form_id ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<?php if ( $is_ours && 'ok' === $status ) : ?>
 			<p class="pf-success" role="status"><?php echo esc_html( $atts['success'] ); ?></p>
 		<?php endif; ?>
@@ -128,6 +128,10 @@ function petit_form_current_url() {
 /**
  * Map an error code to a friendly, non-technical visitor message.
  * The code itself is displayed alongside so a site owner can look it up.
+ *
+ * Messages can be overridden without touching this plugin:
+ *   add_filter( 'petit_form_user_message', fn( $msg, $code ) =>
+ *       'PF-E2005' === $code ? 'Doucement !' : $msg, 10, 2 );
  */
 function petit_form_user_message_for( $code ) {
 	$generic = __( 'Sorry, your message could not be sent. Please try again.', 'petit-form' );
@@ -141,5 +145,13 @@ function petit_form_user_message_for( $code ) {
 		'PF-E2006' => __( 'The anti-spam check is missing. Please reload the page.', 'petit-form' ),
 		'PF-E2007' => __( 'The anti-spam check failed. Please try again.', 'petit-form' ),
 	);
-	return isset( $map[ $code ] ) ? $map[ $code ] : $generic;
+	$message = isset( $map[ $code ] ) ? $map[ $code ] : $generic;
+
+	/**
+	 * Filter any visitor-facing message by error code.
+	 *
+	 * @param string $message The default message.
+	 * @param string $code    The stable error code (PF-Exxxx), '' on success.
+	 */
+	return apply_filters( 'petit_form_user_message', $message, $code );
 }

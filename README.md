@@ -75,6 +75,18 @@ Error handling: every rejection carries a stable code (`PF-Exxxx`), shown to the
 
 Design decision: when the Turnstile API is unreachable, submissions are **accepted and logged** (fail-open). Losing a real lead costs more than a spam wave during a Cloudflare outage. The database remains the source of truth.
 
+## Customization
+
+**Texts.** Per form, via shortcode attributes: `submit="..."`, `success="..."`, and field labels (`name:required:Your name`). Visitor-facing error messages can be overridden with one filter:
+
+```php
+add_filter( 'petit_form_user_message', function ( $message, $code ) {
+    return 'PF-E2005' === $code ? 'Easy now — try again in a bit.' : $message;
+}, 10, 2 );
+```
+
+**Styling.** There is deliberately no CSS editor in this plugin — WordPress already ships one: *Appearance → Customize → Additional CSS*. It is free, stored in the database, and survives updates. The plugin's stylesheet uses low-specificity, `.pf-`-prefixed selectors and no `!important`, so any rule you add there wins.
+
 ## For developers
 
 ```php

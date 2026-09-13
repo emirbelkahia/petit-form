@@ -65,13 +65,11 @@ if ( is_admin() ) {
 }
 
 /**
- * Front-end assets, only on pages that actually render a form.
- * The render pipeline sets the flag via petit_form_mark_assets_needed().
+ * Front-end assets. Called directly from the shortcode: WordPress prints
+ * late-enqueued styles in the footer, so assets only ever load on pages
+ * that actually render a form — no flags, no transients, no guessing.
  */
 function petit_form_enqueue_assets() {
-	if ( ! petit_form_assets_needed() ) {
-		return;
-	}
 	wp_enqueue_style(
 		'petit-form',
 		PETIT_FORM_URL . 'assets/petit-form.css',
@@ -88,4 +86,3 @@ function petit_form_enqueue_assets() {
 		);
 	}
 }
-add_action( 'wp_enqueue_scripts', 'petit_form_enqueue_assets' );
