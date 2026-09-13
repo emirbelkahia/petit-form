@@ -35,7 +35,7 @@ function petit_form_shortcode( $atts ) {
 		'petit-form'
 	);
 
-	$form_id = sanitize_key( $atts['id'] );
+	$form_id = substr( sanitize_key( $atts['id'] ), 0, 64 );
 	if ( '' === $form_id ) {
 		petit_form_log( 'PF-E1001', 'Shortcode missing the id attribute.' );
 		return current_user_can( 'manage_options' )
@@ -101,21 +101,22 @@ function petit_form_shortcode( $atts ) {
  * is prefixed with the form id so two forms on one page never collide.
  */
 function petit_form_render_field( $field, $form_id = '' ) {
-	$id       = 'pf-' . ( $form_id ? $form_id . '-' : '' ) . $field['key'];
-	$required = $field['required'] ? ' required aria-required="true"' : '';
+	$id        = 'pf-' . ( $form_id ? $form_id . '-' : '' ) . $field['key'];
+	$required  = $field['required'] ? ' required aria-required="true"' : '';
+	$maxlength = petit_form_max_length_for( $field['type'] );
 	?>
 	<p class="pf-field pf-field-<?php echo esc_attr( $field['type'] ); ?>">
 		<label for="<?php echo esc_attr( $id ); ?>">
 			<?php echo esc_html( $field['label'] ); ?><?php echo $field['required'] ? ' <span class="pf-required" aria-hidden="true">*</span>' : ''; ?>
 		</label>
 		<?php if ( 'textarea' === $field['type'] ) : ?>
-			<textarea id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" rows="5"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?>></textarea>
+			<textarea id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" rows="5" maxlength="<?php echo (int) $maxlength; ?>"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?>></textarea>
 		<?php elseif ( 'checkbox' === $field['type'] ) : ?>
 			<span class="pf-checkbox-row">
 				<input type="checkbox" id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" value="1"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?> />
 			</span>
 		<?php else : ?>
-			<input type="<?php echo esc_attr( 'name' === $field['type'] ? 'text' : $field['type'] ); ?>" id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?> />
+			<input type="<?php echo esc_attr( 'name' === $field['type'] ? 'text' : $field['type'] ); ?>" id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" maxlength="<?php echo (int) $maxlength; ?>"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?> />
 		<?php endif; ?>
 	</p>
 	<?php
@@ -144,11 +145,18 @@ function petit_form_user_message_for( $code ) {
 		'PF-E1101' => __( 'A required field is missing.', 'petit-form' ),
 		'PF-E1102' => __( 'The email address looks invalid.', 'petit-form' ),
 		'PF-E1103' => __( 'The phone number looks invalid.', 'petit-form' ),
+		'PF-E1104' => __( 'A field is too long. Please shorten it.', 'petit-form' ),
+		// On a page served from cache, "expired" is the honest explanation.
+		'PF-E2001' => __( 'The form has expired. Please reload the page and try again.', 'petit-form' ),
 		'PF-E2003' => __( 'The form was submitted too quickly. Please try again.', 'petit-form' ),
 		'PF-E2004' => __( 'The form has expired. Please reload the page and try again.', 'petit-form' ),
 		'PF-E2005' => __( 'Too many attempts. Please try again later.', 'petit-form' ),
 		'PF-E2006' => __( 'The anti-spam check is missing. Please reload the page.', 'petit-form' ),
 		'PF-E2007' => __( 'The anti-spam check failed. Please try again.', 'petit-form' ),
+		// PF-E2002 (honeypot) and PF-E2008 (Turnstile outage) stay generic on
+		// purpose: bots must not learn which layer caught them.
+		'PF-E2002' => $generic,
+		'PF-E2008' => $generic,
 	);
 	$message = isset( $map[ $code ] ) ? $map[ $code ] : $generic;
 

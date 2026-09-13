@@ -62,8 +62,8 @@ Useful attributes: `submit="Button label"`, `success="Thank-you message"`.
 |---|---|---|
 | WordPress nonce | Yes | CSRF — forged requests from another site |
 | Honeypot field | Yes | Dumb bots that fill every field (~85 % of bot spam) |
-| Signed time-trap | Yes | Bots submitting in under 3 s; the signature binds timestamp + form id + **field spec**, so visitors cannot tamper with `required` flags or field types. Valid 24 h (aligned with the nonce lifetime) so pages served from a page cache keep working |
-| Rate limiting | Yes | Floods: 10 validated submissions/hour per IP per form (configurable, sliding window; only validated submissions count, so typos don't burn quota) |
+| Signed time-trap | Yes | Bots submitting in under 3 s; the signature binds timestamp + form id + **field spec**, so visitors cannot tamper with `required` flags or field types. Valid 24 h |
+| Rate limiting | Yes | Floods: 10 validated submissions/hour per IP per form (configurable; only validated submissions count, so typos don't burn quota) |
 | Turnstile | Optional | Persistent/targeted bots. Enable in Settings with Cloudflare keys |
 | Sanitization + validation | Yes | XSS payloads, malformed emails/phones, over-long values |
 | Prepared statements | Yes | SQL injection |
@@ -78,15 +78,17 @@ Error handling: every rejection carries a stable code (`PF-Exxxx`), shown to the
 | PF-E1101 | Required field empty |
 | PF-E1102 | Invalid email |
 | PF-E1103 | Invalid phone |
+| PF-E1104 | Field too long / payload over 60 KB |
 | PF-E2001 | Nonce missing/invalid |
 | PF-E2002 | Honeypot filled (bot) |
 | PF-E2003 | Submitted too fast (bot) |
-| PF-E2004 | Time-trap token forged or expired |
+| PF-E2004 | Time-trap token forged, tampered field spec, or expired |
 | PF-E2005 | Rate limit exceeded |
 | PF-E2006 | Turnstile token missing |
-| PF-E2007 | Turnstile rejected the visitor |
-| PF-E2008 | Turnstile API unreachable — submission accepted (fail-open, logged) |
+| PF-E2007 | Turnstile rejected the visitor (or a 4xx from the API) |
+| PF-E2008 | Turnstile API unreachable/5xx — submission accepted (fail-open, logged) |
 | PF-E3001 | Database insert failed |
+| PF-E3002 | Leads table creation failed (check DB user rights) |
 | PF-E4001 | Notification email failed |
 | PF-E4101 | Webhook delivery failed |
 
@@ -127,7 +129,7 @@ Exit code 0 = all green. Run it before shipping any change.
 
 ## Known limitations, by design
 
-- **Page caches**: the anti-bot token lives 24 h (same as the WordPress nonce). A page cached longer than that will reject submissions until the cache refreshes — exclude long-lived form pages from aggressive caching.
+- **Page caches**: a WordPress nonce lives 12–24 h. A form page served from a page cache older than that rejects submissions until the cache refreshes — set a cache timeout under 12 h on pages with a form (e.g. WP Fastest Cache → Cache Timeout).
 - **Reverse proxies**: the client IP is read from `REMOTE_ADDR` only (`X-Forwarded-For` is forgeable). Behind a known proxy, map the real IP with the `petit_form_client_ip` filter, otherwise all visitors share one rate-limit bucket.
 - **Submissions go through `admin-post.php`**: hardening setups that block `/wp-admin/` for anonymous users will block the form too.
 - **Single site** (no multisite support), no entry repopulation after a server-side validation error, double-click = two leads (no JS dedup, by design).
@@ -135,7 +137,7 @@ Exit code 0 = all green. Run it before shipping any change.
 
 ## Roadmap
 
-- v0.3: optional Akismet content check, per-form notification recipient, lead retention setting
+- v0.3: optional Akismet content check, per-form notification recipient, lead retention setting, WordPress privacy exporters/erasers for GDPR requests
 - Not planned: drag-and-drop builder, conditional logic, payments, multi-step. If you need those, use a vendor plugin — that is their job, not this one's.
 
 ## Maintenance and contributing

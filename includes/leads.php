@@ -29,11 +29,19 @@ function petit_form_table() {
 function petit_form_store_lead( $form_id, $values ) {
 	global $wpdb;
 
+	// The data column is TEXT (64 KB). Several long textareas with 4-byte
+	// UTF-8 could exceed it and be silently truncated into invalid JSON.
+	// Reject instead: a lead stored whole is worth more than a giant message.
+	$json = wp_json_encode( $values, JSON_UNESCAPED_UNICODE );
+	if ( strlen( (string) $json ) > 60000 ) {
+		return new WP_Error( 'PF-E1104', 'Encoded payload exceeds 60 KB.' );
+	}
+
 	$inserted = $wpdb->insert(
 		petit_form_table(),
 		array(
 			'form_id'    => $form_id,
-			'data'       => wp_json_encode( $values, JSON_UNESCAPED_UNICODE ),
+			'data'       => $json,
 			'ip_hash'    => petit_form_ip_hash(),
 			'created_at' => current_time( 'mysql', true ),
 		),

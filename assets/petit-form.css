@@ -70,3 +70,14 @@
 	font-size: 0.85em;
 	opacity: 0.7;
 }
+
+/* Honeypot hiding, duplicated from the inline style: a strict CSP that
+   blocks inline styles must not make the trap visible. */
+.pf-trap {
+	position: absolute;
+	left: -9999px;
+	top: -9999px;
+	height: 1px;
+	width: 1px;
+	overflow: hidden;
+}

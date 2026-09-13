@@ -3,7 +3,7 @@
 # License: MIT
 msgid ""
 msgstr ""
-"Project-Id-Version: Petit Form 0.1.0\n"
+"Project-Id-Version: Petit Form 0.2.1\n"
 "Report-Msgid-Bugs-To: https://github.com/emirbelkahia/petit-form/issues\n"
 "POT-Creation-Date: 2026-09-13 12:00+0200\n"
 "PO-Revision-Date: 2026-09-13 12:00+0200\n"
@@ -41,6 +41,9 @@ msgstr "L'adresse e-mail semble invalide."
 
 msgid "The phone number looks invalid."
 msgstr "Le numéro de téléphone semble invalide."
+
+msgid "A field is too long. Please shorten it."
+msgstr "Un champ est trop long. Raccourcissez-le."
 
 msgid "The form was submitted too quickly. Please try again."
 msgstr "Le formulaire a été envoyé trop vite. Veuillez réessayer."

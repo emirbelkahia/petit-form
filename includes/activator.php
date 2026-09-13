@@ -32,5 +32,14 @@ function petit_form_create_table() {
 	) {$charset};";
 
 	dbDelta( $sql );
+
+	// dbDelta fails silently (e.g. MySQL user without CREATE). Verify, log a
+	// stable code, and do NOT write the version: admin_init will retry.
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+		if ( function_exists( 'petit_form_log' ) ) {
+			petit_form_log( 'PF-E3002', 'Leads table creation failed: ' . $wpdb->last_error );
+		}
+		return;
+	}
 	update_option( 'petit_form_db_version', PETIT_FORM_VERSION );
 }

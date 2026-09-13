@@ -11,7 +11,6 @@
 
 // Fake WordPress root so the "defined( 'ABSPATH' )" guards let the includes load.
 define( 'ABSPATH', '/tmp/petit-form-tests/' );
-define( 'PETIT_FORM_TESTS', true );
 define( 'HOUR_IN_SECONDS', 3600 );
 
 error_reporting( E_ALL );
@@ -50,6 +49,8 @@ function sanitize_key( $key ) {
 
 function sanitize_text_field( $str ) {
 	$str = (string) $str;
+	// Mimic wp_strip_all_tags: <script>/<style> blocks go away WITH content.
+	$str = preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $str );
 	$str = strip_tags( $str );
 	$str = preg_replace( '/[\r\n\t]+/', ' ', $str );
 	$str = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $str );
@@ -150,7 +151,7 @@ ok( 'name' === $fields[0]['type'], 'prenom maps to name type' );
 
 echo "sanitization\n";
 
-ok( 'alert(1)' === petit_form_sanitize_value( '<script>alert(1)</script>', 'text' ), 'text: tags stripped' );
+ok( '' === petit_form_sanitize_value( '<script>alert(1)</script>', 'text' ), 'text: script block removed with content (like wp_strip_all_tags)' );
 ok( '' === petit_form_sanitize_value( "a\nb", 'tel' ), 'tel: letters stripped' );
 ok( '+33 6 12 34 56 78' === petit_form_sanitize_value( '+33 6 12 34 56 78', 'tel' ), 'tel: valid kept' );
 ok( "ligne1\nligne2" === petit_form_sanitize_value( "ligne1\nligne2", 'textarea' ), 'textarea: newlines kept' );
@@ -185,17 +186,17 @@ echo "honeypot\n";
 $spec = 'name:required, email:required';
 $ts   = time() - 30;
 $sig  = petit_form_time_trap_sign( $ts, 'contact', $spec );
-$post = array( 'pf_company_url' => '', 'pf_ts' => $ts, 'pf_sig' => $sig, 'pf_fields' => $spec );
+$post = array( 'pf_hp_x91' => '', 'pf_ts' => (string) $ts, 'pf_sig' => $sig, 'pf_fields' => $spec );
 ok( true === petit_form_verify_traps( $post, 'contact' ), 'empty honeypot + valid trap passes' );
 
-$err = petit_form_verify_traps( array_merge( $post, array( 'pf_company_url' => 'http://spam.example' ) ), 'contact' );
+$err = petit_form_verify_traps( array_merge( $post, array( 'pf_hp_x91' => 'http://spam.example' ) ), 'contact' );
 ok( is_wp_error( $err ) && 'PF-E2002' === $err->get_error_code(), 'filled honeypot -> PF-E2002' );
 
 echo "time-trap\n";
 
 $fast_ts  = time();
 $fast_sig = petit_form_time_trap_sign( $fast_ts, 'contact', $spec );
-$err      = petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $fast_ts, 'pf_sig' => $fast_sig, 'pf_fields' => $spec ), 'contact' );
+$err      = petit_form_verify_traps( array( 'pf_hp_x91' => '', 'pf_ts' => (string) $fast_ts, 'pf_sig' => $fast_sig, 'pf_fields' => $spec ), 'contact' );
 ok( is_wp_error( $err ) && 'PF-E2003' === $err->get_error_code(), 'submitted in <3s -> PF-E2003' );
 
 $err = petit_form_verify_traps( array_merge( $post, array( 'pf_sig' => 'forged' ) ), 'contact' );
@@ -203,12 +204,12 @@ ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'forged signat
 
 $old_ts  = time() - 25 * 3600;
 $old_sig = petit_form_time_trap_sign( $old_ts, 'contact', $spec );
-$err     = petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $old_ts, 'pf_sig' => $old_sig, 'pf_fields' => $spec ), 'contact' );
+$err     = petit_form_verify_traps( array( 'pf_hp_x91' => '', 'pf_ts' => (string) $old_ts, 'pf_sig' => $old_sig, 'pf_fields' => $spec ), 'contact' );
 ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'stale form (>24h) -> PF-E2004' );
 
 $cache_ts  = time() - 3 * 3600;
 $cache_sig = petit_form_time_trap_sign( $cache_ts, 'contact', $spec );
-ok( true === petit_form_verify_traps( array( 'pf_company_url' => '', 'pf_ts' => $cache_ts, 'pf_sig' => $cache_sig, 'pf_fields' => $spec ), 'contact' ), 'page-cache scenario: 3h-old form still valid' );
+ok( true === petit_form_verify_traps( array( 'pf_hp_x91' => '', 'pf_ts' => (string) $cache_ts, 'pf_sig' => $cache_sig, 'pf_fields' => $spec ), 'contact' ), 'page-cache scenario: 3h-old form still valid' );
 
 echo "fields spec tampering\n";
 
@@ -216,6 +217,20 @@ $err = petit_form_verify_traps( array_merge( $post, array( 'pf_fields' => 'email
 ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'spec stripped of required -> PF-E2004' );
 $err = petit_form_verify_traps( array_merge( $post, array( 'pf_fields' => '' ) ), 'contact' );
 ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'empty spec -> PF-E2004' );
+
+echo "magic quotes regression (apostrophe in spec)\n";
+
+// WordPress slash $_POST. A spec with an apostrophe ("J'accepte…") must
+// still verify once the handler has unslashed it.
+$fr_spec = "rgpd:checkbox:required:J'accepte la politique";
+$fr_ts   = time() - 60;
+$fr_sig  = petit_form_time_trap_sign( $fr_ts, 'guide', $fr_spec );
+$slashed = array_map( 'addslashes', array( 'pf_hp_x91' => '', 'pf_ts' => (string) $fr_ts, 'pf_sig' => $fr_sig, 'pf_fields' => $fr_spec ) );
+// Simulate the handler's unslash step:
+$unslashed = array_map( 'stripslashes', $slashed );
+ok( true === petit_form_verify_traps( $unslashed, 'guide' ), 'apostrophe spec verifies after unslash' );
+$err = petit_form_verify_traps( $slashed, 'guide' );
+ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'slashed spec is rejected (documents why unslash is mandatory)' );
 
 echo "rate limiting\n";
 
@@ -229,6 +244,55 @@ ok( true === petit_form_rate_limit_check( 'autre-form' ), 'other form has its ow
 
 echo "turnstile disabled by default\n";
 ok( true === petit_form_verify_turnstile( array() ), 'no keys configured -> passes through' );
+
+// ---------------------------------------------------------------------------
+// mail.php + admin.php pure helpers
+// ---------------------------------------------------------------------------
+
+require_once dirname( __DIR__ ) . '/includes/mail.php';
+require_once dirname( __DIR__ ) . '/includes/admin.php';
+
+echo "mail header hygiene\n";
+ok( 'Jean Dupont' === petit_form_strip_crlf( "Jean\nDupont" ), 'CR/LF stripped from name' );
+ok( 'Jean Dupont' === petit_form_strip_crlf( 'Jean,Dupont' ), 'comma stripped (Reply-To split protection)' );
+ok( 'jean' === petit_form_strip_crlf( '<jean>' ), 'angle brackets stripped' );
+
+echo "csv row safety\n";
+function pf_csv_capture( $row ) {
+	$out = fopen( 'php://memory', 'w' );
+	petit_form_csv_row( $out, $row );
+	rewind( $out );
+	$csv = stream_get_contents( $out );
+	fclose( $out );
+	return $csv;
+}
+ok( false !== strpos( pf_csv_capture( array( '=CMD|/C calc' ) ), "'=CMD" ), 'formula cell prefixed with quote' );
+ok( "normal\n" === pf_csv_capture( array( 'normal' ) ), 'normal cell untouched' );
+
+// ---------------------------------------------------------------------------
+// Consistency: every PF-Exxxx code used in includes/ must exist in the
+// visitor message map AND in the README table.
+// ---------------------------------------------------------------------------
+
+echo "error code consistency\n";
+
+$codes = array();
+foreach ( glob( dirname( __DIR__ ) . '/includes/*.php' ) as $file ) {
+	preg_match_all( "/'(PF-E\d{4})'/", file_get_contents( $file ), $m );
+	$codes = array_merge( $codes, $m[1] );
+}
+$codes   = array_unique( $codes );
+$readme  = file_get_contents( dirname( __DIR__ ) . '/README.md' );
+$render  = file_get_contents( dirname( __DIR__ ) . '/includes/render.php' );
+foreach ( $codes as $code ) {
+	ok( false !== strpos( $readme, $code ), "$code documented in README.md" );
+}
+// Visitor-facing: every E1xxx/E2xxx code must have a mapped message.
+foreach ( $codes as $code ) {
+	if ( preg_match( '/^PF-E[12]/', $code ) ) {
+		ok( false !== strpos( $render, "'" . $code . "'" ), "$code has a visitor message" );
+	}
+}
 
 // ---------------------------------------------------------------------------
 

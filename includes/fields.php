@@ -142,7 +142,6 @@ function petit_form_sanitize_value( $value, $type ) {
  * @return true|WP_Error
  */
 function petit_form_validate_value( $field, $value ) {
-	$label = $field['label'];
 	if ( $field['required'] && '' === $value ) {
 		return new WP_Error( 'PF-E1101', sprintf( 'Required field "%s" is empty.', $field['key'] ) );
 	}

@@ -40,7 +40,15 @@ function petit_form_client_ip() {
  * stable hash lets us rate-limit and investigate abuse patterns.
  */
 function petit_form_ip_hash() {
-	return hash_hmac( 'sha256', petit_form_client_ip(), wp_salt( 'nonce' ) );
+	$ip = petit_form_client_ip();
+	// IPv6: group by /64 so a bot rotating inside its prefix shares one bucket.
+	if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+		$packed = inet_pton( $ip );
+		if ( false !== $packed ) {
+			$ip = inet_ntop( substr( $packed, 0, 8 ) . str_repeat( "\0", 8 ) );
+		}
+	}
+	return hash_hmac( 'sha256', $ip, wp_salt( 'nonce' ) );
 }
 
 /**
@@ -63,7 +71,7 @@ function petit_form_render_trap_fields( $form_id, $spec = '' ) {
 	?>
 	<div class="pf-trap" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:1px;width:1px;overflow:hidden;">
 		<label><?php esc_html_e( 'Leave this field empty', 'petit-form' ); ?>
-			<input type="text" name="pf_company_url" value="" tabindex="-1" autocomplete="off" />
+			<input type="text" name="pf_hp_x91" value="" tabindex="-1" autocomplete="new-password" />
 		</label>
 	</div>
 	<input type="hidden" name="pf_ts" value="<?php echo esc_attr( $ts ); ?>" />
@@ -75,21 +83,26 @@ function petit_form_render_trap_fields( $form_id, $spec = '' ) {
  * Verify the anti-bot traps. Returns true when the submission looks human,
  * or a WP_Error with a stable code when it does not.
  *
- * @param array $post Sanitized-ish $_POST subset.
+ * IMPORTANT: $post must be UNSLASHED. WordPress magic-quotes $_POST, and an
+ * apostrophe in a field label ("J'accepte…") would otherwise break the
+ * signature comparison and reject every submission with PF-E2004.
+ *
+ * @param array $post Unslashed subset of $_POST.
  * @return true|WP_Error
  */
 function petit_form_verify_traps( $post, $form_id ) {
-	// Honeypot: must be empty.
-	if ( ! empty( $post['pf_company_url'] ) ) {
+	// Honeypot: must be empty. Opaque name + non-standard autocomplete so
+	// browser autofill never populates it for a human.
+	if ( ! empty( $post['pf_hp_x91'] ) ) {
 		return new WP_Error( 'PF-E2002', 'Honeypot field was filled.' );
 	}
 
 	// Time-trap: signature must match and elapsed time must be plausible.
 	// The signature binds ts + form_id + fields spec: tampering with the spec
 	// (removing "required", changing types) invalidates it -> PF-E2004.
-	$ts   = isset( $post['pf_ts'] ) ? (int) $post['pf_ts'] : 0;
-	$sig  = isset( $post['pf_sig'] ) ? (string) $post['pf_sig'] : '';
-	$spec = isset( $post['pf_fields'] ) ? (string) $post['pf_fields'] : '';
+	$ts   = isset( $post['pf_ts'] ) && is_string( $post['pf_ts'] ) ? (int) $post['pf_ts'] : 0;
+	$sig  = isset( $post['pf_sig'] ) && is_string( $post['pf_sig'] ) ? $post['pf_sig'] : '';
+	$spec = isset( $post['pf_fields'] ) && is_string( $post['pf_fields'] ) ? $post['pf_fields'] : '';
 	if ( ! $ts || ! hash_equals( petit_form_time_trap_sign( $ts, $form_id, $spec ), $sig ) ) {
 		return new WP_Error( 'PF-E2004', 'Time-trap signature mismatch (ts, form id or fields spec tampered).' );
 	}
@@ -148,9 +161,14 @@ function petit_form_verify_turnstile( $post ) {
 	if ( ! petit_form_turnstile_enabled() ) {
 		return true;
 	}
-	$token = isset( $post['cf-turnstile-response'] ) ? (string) $post['cf-turnstile-response'] : '';
+	$token = isset( $post['cf-turnstile-response'] ) && is_string( $post['cf-turnstile-response'] ) ? $post['cf-turnstile-response'] : '';
 	if ( '' === $token ) {
 		return new WP_Error( 'PF-E2006', 'Turnstile token missing.' );
+	}
+	// Cloudflare documents 2048 chars max; an oversized token is an attack
+	// probe, not an outage — reject it instead of risking a 4xx fail-open.
+	if ( strlen( $token ) > 2048 ) {
+		return new WP_Error( 'PF-E2007', 'Turnstile token oversized.' );
 	}
 	$response = wp_remote_post(
 		'https://challenges.cloudflare.com/turnstile/v0/siteverify',
@@ -167,9 +185,15 @@ function petit_form_verify_turnstile( $post ) {
 		petit_form_log( 'PF-E2008', 'Turnstile API unreachable, failing open: ' . $response->get_error_message() );
 		return true;
 	}
-	if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-		petit_form_log( 'PF-E2008', 'Turnstile API returned HTTP ' . wp_remote_retrieve_response_code( $response ) . ', failing open.' );
+	$http = (int) wp_remote_retrieve_response_code( $response );
+	if ( $http >= 500 ) {
+		petit_form_log( 'PF-E2008', 'Turnstile API returned HTTP ' . $http . ', failing open.' );
 		return true;
+	}
+	if ( 200 !== $http ) {
+		// 4xx means OUR request was wrong (bad secret, malformed body), not an
+		// outage. Failing open here would hand attackers a bypass on demand.
+		return new WP_Error( 'PF-E2007', 'Turnstile API rejected the request (HTTP ' . $http . ').' );
 	}
 	$json = json_decode( wp_remote_retrieve_body( $response ), true );
 	if ( empty( $json['success'] ) ) {

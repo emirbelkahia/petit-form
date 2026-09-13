@@ -70,10 +70,14 @@ function petit_form_send_notification( $form_id, $values, $lead_id = 0, $fields 
 }
 
 /**
- * Remove CR/LF: never let user input break out of a mail header.
+ * Remove CR/LF and address-list separators: never let user input break out
+ * of a mail header. wp_mail() explodes Reply-To on commas — a comma in the
+ * visitor's name would add an attacker-controlled Reply-To address.
  */
 function petit_form_strip_crlf( $value ) {
-	return trim( str_replace( array( "\r", "\n" ), ' ', (string) $value ) );
+	$value = str_replace( array( "\r", "\n" ), ' ', (string) $value );
+	$value = str_replace( array( ',', ';' ), ' ', $value ); // address-list separators -> space
+	return trim( str_replace( array( '<', '>', '"', '\\' ), '', $value ) );
 }
 
 /**
