@@ -1,0 +1,72 @@
+/**
+ * Petit Form — minimal front-end styles.
+ * Everything is prefixed with .petit-form / .pf- and uses low specificity
+ * so the active theme can override any rule without !important.
+ */
+
+.petit-form {
+	max-width: 34rem;
+}
+
+.petit-form .pf-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin: 0 0 1rem;
+}
+
+.petit-form label {
+	font-weight: 600;
+}
+
+.petit-form .pf-required {
+	color: #b32d2e;
+}
+
+.petit-form input[type="text"],
+.petit-form input[type="email"],
+.petit-form input[type="tel"],
+.petit-form textarea {
+	width: 100%;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	font: inherit;
+}
+
+.petit-form .pf-checkbox-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.petit-form .pf-checkbox-row input {
+	width: auto;
+}
+
+.petit-form .pf-submit {
+	padding: 0.6rem 1.4rem;
+	border: 0;
+	border-radius: 4px;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.petit-form .pf-success {
+	padding: 0.75rem 1rem;
+	border-left: 4px solid #00a32a;
+	background: #edfaef;
+}
+
+.petit-form .pf-error {
+	padding: 0.75rem 1rem;
+	border-left: 4px solid #b32d2e;
+	background: #fcf0f1;
+}
+
+.petit-form .pf-error code {
+	margin-left: 0.5rem;
+	font-size: 0.85em;
+	opacity: 0.7;
+}

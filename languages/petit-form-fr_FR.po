@@ -1,0 +1,160 @@
+# Petit Form — French translation
+# Copyright (c) 2026 Emir Belkahia
+# License: MIT
+msgid ""
+msgstr ""
+"Project-Id-Version: Petit Form 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/emirbelkahia/petit-form/issues\n"
+"POT-Creation-Date: 2026-09-13 12:00+0200\n"
+"PO-Revision-Date: 2026-09-13 12:00+0200\n"
+"Last-Translator: Emir Belkahia\n"
+"Language-Team: French\n"
+"Language: fr_FR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Send"
+msgstr "Envoyer"
+
+msgid "Thank you! Your message has been sent."
+msgstr "Merci ! Votre message a bien été envoyé."
+
+msgid "Missing required \"id\" attribute (PF-E1001)."
+msgstr "Attribut « id » manquant (PF-E1001)."
+
+msgid "No usable fields (PF-E1001)."
+msgstr "Aucun champ exploitable (PF-E1001)."
+
+msgid "Leave this field empty"
+msgstr "Laissez ce champ vide"
+
+msgid "Sorry, your message could not be sent. Please try again."
+msgstr "Désolé, votre message n'a pas pu être envoyé. Veuillez réessayer."
+
+msgid "A required field is missing."
+msgstr "Un champ obligatoire est manquant."
+
+msgid "The email address looks invalid."
+msgstr "L'adresse e-mail semble invalide."
+
+msgid "The phone number looks invalid."
+msgstr "Le numéro de téléphone semble invalide."
+
+msgid "The form was submitted too quickly. Please try again."
+msgstr "Le formulaire a été envoyé trop vite. Veuillez réessayer."
+
+msgid "The form has expired. Please reload the page and try again."
+msgstr "Le formulaire a expiré. Rechargez la page et réessayez."
+
+msgid "Too many attempts. Please try again later."
+msgstr "Trop de tentatives. Réessayez plus tard."
+
+msgid "The anti-spam check is missing. Please reload the page."
+msgstr "La vérification anti-spam est absente. Rechargez la page."
+
+msgid "The anti-spam check failed. Please try again."
+msgstr "La vérification anti-spam a échoué. Veuillez réessayer."
+
+msgid "[%1$s] New lead on %2$s"
+msgstr "[%1$s] Nouveau lead sur %2$s"
+
+msgid "Lead #%d — stored in WordPress (Leads menu)."
+msgstr "Lead n°%d — enregistré dans WordPress (menu Leads)."
+
+msgid "Leads"
+msgstr "Leads"
+
+msgid "Petit Form settings"
+msgstr "Réglages Petit Form"
+
+msgid "Settings"
+msgstr "Réglages"
+
+msgid "Access denied."
+msgstr "Accès refusé."
+
+msgid "Export CSV"
+msgstr "Exporter en CSV"
+
+msgid "All forms"
+msgstr "Tous les formulaires"
+
+msgid "Filter"
+msgstr "Filtrer"
+
+msgid "%d leads"
+msgstr "%d leads"
+
+msgid "Date (UTC)"
+msgstr "Date (UTC)"
+
+msgid "Form"
+msgstr "Formulaire"
+
+msgid "Data"
+msgstr "Données"
+
+msgid "No leads yet."
+msgstr "Aucun lead pour le moment."
+
+msgid "Delete this lead permanently?"
+msgstr "Supprimer ce lead définitivement ?"
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "Invalid nonce (PF-E2001)."
+msgstr "Nonce invalide (PF-E2001)."
+
+msgid "Notification email"
+msgstr "E-mail de notification"
+
+msgid "Leads are always stored in the database; this email is only a notification."
+msgstr "Les leads sont toujours enregistrés en base ; cet e-mail n'est qu'une notification."
+
+msgid "Webhook URL"
+msgstr "URL du webhook"
+
+msgid "Optional. Every new lead is POSTed there as JSON."
+msgstr "Optionnel. Chaque nouveau lead y est envoyé en JSON (POST)."
+
+msgid "Webhook auth header"
+msgstr "En-tête d'authentification du webhook"
+
+msgid "Cloudflare Turnstile"
+msgstr "Cloudflare Turnstile"
+
+msgid "Site key"
+msgstr "Clé de site"
+
+msgid "Secret key"
+msgstr "Clé secrète"
+
+msgid "Optional second anti-spam layer. Leave empty to stay on honeypot + time-trap + rate limiting."
+msgstr "Seconde couche anti-spam optionnelle. Laissez vide pour rester sur honeypot + temps minimum + limitation de débit."
+
+msgid "Rate limiting"
+msgstr "Limitation de débit"
+
+msgid "submissions per"
+msgstr "envois par"
+
+msgid "seconds, per IP and per form."
+msgstr "secondes, par IP et par formulaire."
+
+msgid "Minimum fill time"
+msgstr "Temps minimum de remplissage"
+
+msgid "seconds. Faster submissions are rejected as bots."
+msgstr "secondes. Les envois plus rapides sont rejetés comme des bots."
+
+msgid "Data on uninstall"
+msgstr "Données à la désinstallation"
+
+msgid "Delete the leads table and all settings when the plugin is uninstalled."
+msgstr "Supprimer la table des leads et tous les réglages à la désinstallation du plugin."
+
+msgid "Lead deleted."
+msgstr "Lead supprimé."
