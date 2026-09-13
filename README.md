@@ -4,6 +4,23 @@ Simple, secure lead-capture forms for WordPress. Shortcode-driven, leads stored 
 
 Built for sites that need a contact or capture form that **just works and keeps working**: no license server, no feature gating, no vendor updates changing the markup under you.
 
+## Is Petit Form for you?
+
+**Yes, if:**
+- you need a simple contact or lead-capture form (name, email, phone, message, consent checkbox)
+- you want every lead stored in your own database — not just in an email
+- you are tired of vendor upsells, dashboard nags and update anxiety
+- you want a plugin small enough to be read, audited and maintained in one sitting — by you or by a coding agent
+
+**No, if:**
+- you need a drag-and-drop form builder, conditional logic, multi-step forms or payments → use WPForms, Fluent Forms or Gravity Forms
+- you need dozens of pre-built integrations → vendor plugins exist for that
+- pasting a shortcode into a page feels too technical → you want a visual builder, this is not it
+
+## Built in the coding-agent era
+
+Petit Form was created with coding agents, and is designed to be **maintained and audited by coding agents**: small enough to fit in one context window, stable error codes (`PF-Exxxx`) that make log lines diagnosable years later, smoke tests that run without WordPress (`php tests/smoke.php`), and only long-stable WordPress APIs. If an agent (or a human) needs to understand, patch or extend this plugin in five years, everything they need is in this repo.
+
 ## Why not WPForms / Contact Form 7 / Fluent Forms?
 
 - WPForms Lite **does not store submissions** in the free tier — your leads only exist in an email.
