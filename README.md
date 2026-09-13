@@ -43,12 +43,16 @@ The admin list supports filtering, individual deletion and CSV export. Dates use
 
 The lead and its pending notifications are saved together. The visitor's confirmation means the lead was stored; delivery happens separately through **WP-Cron**.
 
+Asynchronous delivery keeps slow mail/webhook calls out of the visitor's request and allows recovery from temporary transport failures. We accept the added delivery state, retry logic and worker coordination, plus the need to keep cron running. The existing leads table and native WordPress scheduler avoid a separate queue service or library.
+
 - Email uses `wp_mail()` and your site's existing mail transport, including any SMTP plugin. The configured recipient defaults to the site's admin email. Reply-To uses the first populated email field and, when present, a name field.
 - The optional webhook receives JSON with `lead_id`, `form`, `fields` and `site`. An optional authentication header is supported. Only HTTP 2xx counts as success; redirects are not followed. Use an HTTPS endpoint.
 - A worker scheduled every minute handles up to five leads per run. Failed channels are retried after five minutes, with at most three attempts per lead. A successful channel is not intentionally resent when the other fails. Pending and stopped deliveries appear in the leads list; details go to the PHP error log.
 - Delivery uses the current settings. Disabling the webhook cancels its pending sends. Old leads are not notified again on upgrade.
 
-WP-Cron depends on site visits unless your host runs it separately. On a quiet site, delivery can be delayed; if `DISABLE_WP_CRON` is set, configure a system task to run WordPress cron. A server crash between sending and recording success can cause duplicate notifications. Webhook receivers should deduplicate by `site` and `lead_id`. Mail transport acceptance does not prove inbox delivery.
+WP-Cron depends on site visits unless your host runs it separately. On a quiet site, delivery can be delayed; if cron stops running, notifications remain pending. To avoid relying on visits, configure your host's scheduler to run WordPress cron every minute. An external scheduler is required if `DISABLE_WP_CRON` is set.
+
+After the final failed attempt, automatic retries stop; the lead remains available in wp-admin. A server crash between sending and recording success can cause duplicate notifications. Webhook receivers should deduplicate by `site` and `lead_id`. Mail transport acceptance does not prove inbox delivery.
 
 ## Security and deployment
 
