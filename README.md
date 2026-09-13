@@ -4,14 +4,24 @@ Small shortcode-based contact forms for WordPress. Leads are stored in your data
 
 Requires WordPress 6.0+ and PHP 7.4+. For production, keep WordPress updated and use a [supported PHP release](https://www.php.net/supported-versions.php).
 
+## Is Petit Form for you?
+
+For site owners and developers who need a few simple contact or lead forms, local records, and email or webhook notifications, and are comfortable configuring shortcodes and styling with CSS.
+
+Single-site only. Visual builders, conditional logic, multi-step forms, uploads, payments and a large integration catalog are outside its scope.
+
+The features overlap with existing form plugins. Petit Form exists to keep this limited scope in a small codebase that you can inspect and maintain yourself. If your current solution already fits, switching may bring no practical benefit.
+
 ## Install and use
 
-Copy this repository into `wp-content/plugins/petit-form/` and activate **Petit Form**. Configure notifications and anti-spam under **Leads → Settings**. To build an installable ZIP from a committed revision:
+Use the installable ZIP produced by GitHub Actions, or build one from a committed revision:
 
 ```sh
 git archive --format=zip --prefix=petit-form/ -o /tmp/petit-form.zip HEAD \
   petit-form.php uninstall.php includes assets languages README.md LICENSE
 ```
+
+Upload the ZIP under **Plugins → Add New → Upload Plugin**, activate **Petit Form**, and configure notifications and anti-spam under **Leads → Settings**. Tests and CI files are excluded from this ZIP. Copying the full repository also copies those files to disk, though the plugin never loads or runs them.
 
 Add a shortcode to a page:
 
@@ -55,13 +65,13 @@ Check these deployment conditions:
 3. `REMOTE_ADDR` is the default IP source. Behind a trusted proxy, configure `petit_form_client_ip` to resolve the real client safely. Never blindly trust `X-Forwarded-For`; otherwise visitors may share the proxy's quota. IPv6 addresses share a bucket per /64.
 4. Verify an actual submission, the saved row, and notification delivery after deployment. Keep a restorable database backup. Schema upgrades run on admin requests and delivery runs; missing tables are also checked during admin visits and repaired once after a failed insert. Recreating a missing table cannot recover its old rows.
 
-## Data and scope
+## Data and limitations
 
 Leads remain until individually deleted. Raw IPs are not stored in the plugin's tables; salted HMACs are retained with leads and in logs. Turnstile receives the client IP when enabled. Server logs and other plugins have their own data policies. Retention and privacy-request handling remain the site owner's responsibility; there is no automatic lead purge or WordPress privacy exporter/eraser.
 
 Uninstall preserves leads and settings by default. Enable **Delete data on uninstall** to remove them. Scheduled delivery is cleared on deactivation; pending leads resume after reactivation.
 
-Single-site only. No visual builder, conditional logic, payments or multi-step forms. A validation error clears entered values; duplicate submissions can create duplicate leads. These limitations are deliberate; additional integrations are added only when a concrete need justifies their maintenance.
+A validation error clears entered values; duplicate submissions can create duplicate leads. Additional integrations are added only when a concrete need justifies their maintenance.
 
 ## Customization
 
@@ -109,4 +119,8 @@ Run `php tests/smoke.php` for isolated logic tests. For real WordPress/MariaDB t
 
 GitHub Actions runs lint, smoke and integration tests at the declared minimum versions and on current runtimes, and builds a ZIP from the tested commit. README, code comments and commit messages are written in English.
 
-Personal-use project with best-effort maintenance. Report security issues through a [private GitHub security advisory](https://github.com/emirbelkahia/petit-form/security/advisories/new). Licensed under [MIT](LICENSE).
+## Built in the coding-agent era
+
+Developed with coding agents. Documented constraints, stable error codes and repeatable tests help humans and agents work on the code. Agent-generated changes still require review and testing.
+
+Personal-use project with best-effort maintenance. Issues and pull requests are read and welcome; response and fix times are not guaranteed. Report security issues through a [private GitHub security advisory](https://github.com/emirbelkahia/petit-form/security/advisories/new). Licensed under [MIT](LICENSE).
