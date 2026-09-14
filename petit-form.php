@@ -3,7 +3,7 @@
  * Plugin Name:       Petit Form
  * Plugin URI:        https://github.com/emirbelkahia/petit-form
  * Description:       Simple, secure lead-capture forms. Shortcode-driven, leads stored in your database, no bloat, no upsells, no tracking.
- * Version:           0.2.4
+ * Version:           0.2.5
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Emir Belkahia
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PETIT_FORM_VERSION', '0.2.4' );
+define( 'PETIT_FORM_VERSION', '0.2.5' );
 define( 'PETIT_FORM_DB_VERSION', '2' );
 define( 'PETIT_FORM_FILE', __FILE__ );
 define( 'PETIT_FORM_DIR', plugin_dir_path( __FILE__ ) );
@@ -99,6 +99,13 @@ function petit_form_enqueue_assets() {
 		PETIT_FORM_URL . 'assets/petit-form.css',
 		array(),
 		PETIT_FORM_VERSION
+	);
+	wp_enqueue_script(
+		'petit-form',
+		PETIT_FORM_URL . 'assets/petit-form.js',
+		array(),
+		PETIT_FORM_VERSION,
+		true
 	);
 	if ( petit_form_turnstile_enabled() ) {
 		wp_enqueue_script(

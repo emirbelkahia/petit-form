@@ -3,7 +3,7 @@
 # License: MIT
 msgid ""
 msgstr ""
-"Project-Id-Version: Petit Form 0.2.4\n"
+"Project-Id-Version: Petit Form 0.2.5\n"
 "Report-Msgid-Bugs-To: https://github.com/emirbelkahia/petit-form/issues\n"
 "POT-Creation-Date: 2026-09-13 12:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -207,6 +207,18 @@ msgstr ""
 
 #: includes/render.php:32
 msgid "Thank you! Your message has been sent."
+msgstr ""
+
+#: includes/render.php:105
+msgid "Please fill out this field."
+msgstr ""
+
+#: includes/render.php:106
+msgid "Please check this box to continue."
+msgstr ""
+
+#: includes/render.php:107
+msgid "Please enter a valid email address."
 msgstr ""
 
 #: includes/render.php:42

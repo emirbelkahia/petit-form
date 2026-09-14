@@ -149,6 +149,11 @@ check( '' === $scroll_style, 'The petit_form_disable_status_scroll filter keeps 
 check( has_action( 'wp_head', 'petit_form_disable_status_scroll_animation' ) > 101, 'The scroll override prints after the Customizer Additional CSS' );
 $_GET = array();
 
+$validation_html = petit_form_shortcode( array( 'id' => 'validation', 'fields' => 'email:required,consent:checkbox:required:I agree' ) );
+check( false !== strpos( $validation_html, 'data-pf-checkbox-message=' ), 'Form exposes a localized checkbox validation message' );
+check( false !== strpos( $validation_html, 'data-pf-email-message=' ), 'Form exposes a localized email validation message' );
+check( wp_script_is( 'petit-form', 'enqueued' ), 'Client validation helper is enqueued only when a form is rendered' );
+
 foreach ( array( "J'accepte", 'Terms &amp; conditions', 'J&#039;accepte', 'A &quot;quote&quot;', 'Literal &amp;amp; text' ) as $label ) {
 	$spec = 'consent:checkbox:required:' . $label;
 	$html = petit_form_shortcode( array( 'id' => 'entities', 'fields' => $spec ) );
