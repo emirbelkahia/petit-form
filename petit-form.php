@@ -3,7 +3,7 @@
  * Plugin Name:       Petit Form
  * Plugin URI:        https://github.com/emirbelkahia/petit-form
  * Description:       Simple, secure lead-capture forms. Shortcode-driven, leads stored in your database, no bloat, no upsells, no tracking.
- * Version:           0.2.3
+ * Version:           0.2.4
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Emir Belkahia
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PETIT_FORM_VERSION', '0.2.3' );
+define( 'PETIT_FORM_VERSION', '0.2.4' );
 define( 'PETIT_FORM_DB_VERSION', '2' );
 define( 'PETIT_FORM_FILE', __FILE__ );
 define( 'PETIT_FORM_DIR', plugin_dir_path( __FILE__ ) );
@@ -70,7 +70,10 @@ add_action( 'init', 'petit_form_load_textdomain' );
 
 // Front-end form rendering.
 add_shortcode( 'petit-form', 'petit_form_shortcode' );
-add_action( 'wp_head', 'petit_form_disable_status_scroll_animation', 99 );
+// After the Customizer's Additional CSS (wp_head priority 101): between two
+// !important rules the later one wins, so a smooth-scroll rule there would
+// otherwise bring the animation back.
+add_action( 'wp_head', 'petit_form_disable_status_scroll_animation', 1000 );
 
 // Submission endpoint (logged-in and anonymous visitors).
 add_action( 'admin_post_petit_form_submit', 'petit_form_handle_submit' );

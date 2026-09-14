@@ -135,6 +135,18 @@ ob_start();
 petit_form_disable_status_scroll_animation();
 $scroll_style = ob_get_clean();
 check( '' === $scroll_style, 'Array query parameters cannot inject the scroll override' );
+$_GET = array( 'pf_status' => 'error', 'pf_form' => 'newsletter', 'pf_error' => 'PF-E1101' );
+ob_start();
+petit_form_disable_status_scroll_animation();
+$scroll_style = ob_get_clean();
+check( false !== strpos( $scroll_style, 'scroll-behavior:auto!important' ), 'Error responses also disable the smooth-scroll animation' );
+add_filter( 'petit_form_disable_status_scroll', '__return_false' );
+ob_start();
+petit_form_disable_status_scroll_animation();
+$scroll_style = ob_get_clean();
+remove_filter( 'petit_form_disable_status_scroll', '__return_false' );
+check( '' === $scroll_style, 'The petit_form_disable_status_scroll filter keeps the theme scroll behavior' );
+check( has_action( 'wp_head', 'petit_form_disable_status_scroll_animation' ) > 101, 'The scroll override prints after the Customizer Additional CSS' );
 $_GET = array();
 
 foreach ( array( "J'accepte", 'Terms &amp; conditions', 'J&#039;accepte', 'A &quot;quote&quot;', 'Literal &amp;amp; text' ) as $label ) {
