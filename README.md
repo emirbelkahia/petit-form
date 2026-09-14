@@ -38,7 +38,9 @@ Add a shortcode to a page:
 Submissions use a server-side POST/redirect/get loop and return to the form
 fragment. On that one status response, Petit Form disables document-wide
 smooth scrolling so long pages do not visibly animate from the top back to the
-form. Normal links and subsequent page loads keep the theme's scroll behavior.
+form. Anchor links on that response also jump instantly. Subsequent page loads
+keep the theme's scroll behavior. The `petit_form_disable_status_scroll` filter
+turns the override off (see Customization).
 
 Text/name/email fields allow up to 255 characters, telephone fields 32, and textareas 10,000. Telephone validation accepts 6–15 digits with spaces and `+().-` formatting. Email addresses must pass WordPress validation; unsupported internationalized addresses are rejected without rewriting them. The complete stored JSON is limited to 60 KB, including Unicode escapes.
 
@@ -86,12 +88,15 @@ A validation error clears entered values; duplicate submissions can create dupli
 
 ## Customization
 
-Use theme CSS to override the `.petit-form` and `.pf-` selectors. Visitor messages and custom integrations use WordPress hooks:
+Use theme CSS to override the `.petit-form` and `.pf-` selectors. Visitor messages, the post-submit scroll override and custom integrations use WordPress hooks:
 
 ```php
 add_filter( 'petit_form_user_message', function ( $message, $code ) {
     return 'PF-E2005' === $code ? 'Please try again later.' : $message;
 }, 10, 2 );
+
+// Keep the theme's smooth scrolling on status responses.
+add_filter( 'petit_form_disable_status_scroll', '__return_false' );
 
 add_action( 'petit_form_lead_created', function ( $lead_id, $form_id, $values ) {
     // Runs synchronously after storage. Keep custom handlers fast.

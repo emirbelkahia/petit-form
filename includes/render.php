@@ -26,6 +26,20 @@ function petit_form_disable_status_scroll_animation() {
 	if ( ! in_array( $status, array( 'ok', 'error' ), true ) || ! preg_match( '/^[a-z0-9_-]{1,64}$/D', $form_id ) ) {
 		return;
 	}
+
+	/**
+	 * Filter whether the smooth-scroll override is printed on a status response.
+	 *
+	 * This is the one place Petit Form uses !important against the theme.
+	 * Return false to keep the site's scroll behavior instead:
+	 *   add_filter( 'petit_form_disable_status_scroll', '__return_false' );
+	 *
+	 * @param bool   $disable Print the override. Default true.
+	 * @param string $form_id Form identifier from the status response.
+	 */
+	if ( ! apply_filters( 'petit_form_disable_status_scroll', true, $form_id ) ) {
+		return;
+	}
 	echo '<style id="petit-form-status-scroll">html{scroll-behavior:auto!important}</style>' . "\n";
 }
 
