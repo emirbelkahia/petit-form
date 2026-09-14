@@ -11,6 +11,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Prevent a page-wide smooth-scroll animation after the POST/redirect/get loop.
+ *
+ * Petit Form redirects to its fragment so the result remains visible. Themes
+ * and builders can apply scroll-behavior:smooth to the whole document; on a
+ * long page that makes the reload visibly travel from the top to the form.
+ * Emit the override only for a valid Petit Form status response. The next
+ * normal navigation has no pf_status parameter, so the site's usual scrolling
+ * behavior is left untouched.
+ */
+function petit_form_disable_status_scroll_animation() {
+	$status  = isset( $_GET['pf_status'] ) && is_string( $_GET['pf_status'] ) ? sanitize_key( wp_unslash( $_GET['pf_status'] ) ) : '';
+	$form_id = isset( $_GET['pf_form'] ) && is_string( $_GET['pf_form'] ) ? sanitize_key( wp_unslash( $_GET['pf_form'] ) ) : '';
+	if ( ! in_array( $status, array( 'ok', 'error' ), true ) || ! preg_match( '/^[a-z0-9_-]{1,64}$/D', $form_id ) ) {
+		return;
+	}
+	echo '<style id="petit-form-status-scroll">html{scroll-behavior:auto!important}</style>' . "\n";
+}
+
+/**
  * Shortcode handler.
  *
  * Examples:
