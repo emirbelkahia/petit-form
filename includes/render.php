@@ -21,8 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * behavior is left untouched.
  */
 function petit_form_disable_status_scroll_animation() {
-	$status  = isset( $_GET['pf_status'] ) ? sanitize_key( wp_unslash( $_GET['pf_status'] ) ) : '';
-	$form_id = isset( $_GET['pf_form'] ) ? sanitize_key( wp_unslash( $_GET['pf_form'] ) ) : '';
+	$status  = isset( $_GET['pf_status'] ) && is_string( $_GET['pf_status'] ) ? sanitize_key( wp_unslash( $_GET['pf_status'] ) ) : '';
+	$form_id = isset( $_GET['pf_form'] ) && is_string( $_GET['pf_form'] ) ? sanitize_key( wp_unslash( $_GET['pf_form'] ) ) : '';
 	if ( ! in_array( $status, array( 'ok', 'error' ), true ) || ! preg_match( '/^[a-z0-9_-]{1,64}$/D', $form_id ) ) {
 		return;
 	}

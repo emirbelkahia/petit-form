@@ -130,6 +130,11 @@ ob_start();
 petit_form_disable_status_scroll_animation();
 $scroll_style = ob_get_clean();
 check( '' === $scroll_style, 'Unknown status cannot inject the scroll override' );
+$_GET = array( 'pf_status' => array( 'ok' ), 'pf_form' => array( 'newsletter' ) );
+ob_start();
+petit_form_disable_status_scroll_animation();
+$scroll_style = ob_get_clean();
+check( '' === $scroll_style, 'Array query parameters cannot inject the scroll override' );
 $_GET = array();
 
 foreach ( array( "J'accepte", 'Terms &amp; conditions', 'J&#039;accepte', 'A &quot;quote&quot;', 'Literal &amp;amp; text' ) as $label ) {
