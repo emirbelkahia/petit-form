@@ -114,6 +114,24 @@ petit_form_maybe_upgrade();
 check( PETIT_FORM_DB_VERSION === get_option( 'petit_form_db_version' ) && ! get_option( 'petit_form_storage_error' ), 'Schema upgrade recovers once database writes work' );
 
 update_option( 'petit_form_min_seconds', 0 );
+
+$_GET = array();
+ob_start();
+petit_form_disable_status_scroll_animation();
+$scroll_style = ob_get_clean();
+check( '' === $scroll_style, 'Normal pages keep the theme scroll behavior' );
+$_GET = array( 'pf_status' => 'ok', 'pf_form' => 'newsletter' );
+ob_start();
+petit_form_disable_status_scroll_animation();
+$scroll_style = ob_get_clean();
+check( false !== strpos( $scroll_style, 'scroll-behavior:auto!important' ), 'Status redirect disables the page-wide smooth-scroll animation' );
+$_GET = array( 'pf_status' => 'forged', 'pf_form' => 'newsletter' );
+ob_start();
+petit_form_disable_status_scroll_animation();
+$scroll_style = ob_get_clean();
+check( '' === $scroll_style, 'Unknown status cannot inject the scroll override' );
+$_GET = array();
+
 foreach ( array( "J'accepte", 'Terms &amp; conditions', 'J&#039;accepte', 'A &quot;quote&quot;', 'Literal &amp;amp; text' ) as $label ) {
 	$spec = 'consent:checkbox:required:' . $label;
 	$html = petit_form_shortcode( array( 'id' => 'entities', 'fields' => $spec ) );

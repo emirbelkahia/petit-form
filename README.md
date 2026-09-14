@@ -35,6 +35,11 @@ Add a shortcode to a page:
 - Keys are normalized to lowercase ASCII; empty or duplicate normalized keys invalidate the form.
 - Optional `submit="Send"` and `success="Thank you!"` attributes change the button and confirmation.
 
+Submissions use a server-side POST/redirect/get loop and return to the form
+fragment. On that one status response, Petit Form disables document-wide
+smooth scrolling so long pages do not visibly animate from the top back to the
+form. Normal links and subsequent page loads keep the theme's scroll behavior.
+
 Text/name/email fields allow up to 255 characters, telephone fields 32, and textareas 10,000. Telephone validation accepts 6–15 digits with spaces and `+().-` formatting. Email addresses must pass WordPress validation; unsupported internationalized addresses are rejected without rewriting them. The complete stored JSON is limited to 60 KB, including Unicode escapes.
 
 The admin list supports filtering, individual deletion and CSV export. Dates use the site's timezone. CSV exports escape formula prefixes and process rows in batches.
