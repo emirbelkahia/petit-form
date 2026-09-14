@@ -97,7 +97,15 @@ function petit_form_shortcode( $atts ) {
 
 	ob_start();
 	?>
-	<form class="petit-form" id="pf-<?php echo esc_attr( $form_id ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+	<form
+		class="petit-form"
+		id="pf-<?php echo esc_attr( $form_id ); ?>"
+		method="post"
+		action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+		data-pf-required-message="<?php echo esc_attr__( 'Please fill out this field.', 'petit-form' ); ?>"
+		data-pf-checkbox-message="<?php echo esc_attr__( 'Please check this box to continue.', 'petit-form' ); ?>"
+		data-pf-email-message="<?php echo esc_attr__( 'Please enter a valid email address.', 'petit-form' ); ?>"
+	>
 		<?php if ( $is_ours && 'ok' === $status ) : ?>
 			<p class="pf-success" role="status"><?php echo esc_html( $atts['success'] ); ?></p>
 		<?php endif; ?>

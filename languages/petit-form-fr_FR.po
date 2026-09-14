@@ -3,7 +3,7 @@
 # License: MIT
 msgid ""
 msgstr ""
-"Project-Id-Version: Petit Form 0.2.4\n"
+"Project-Id-Version: Petit Form 0.2.5\n"
 "Report-Msgid-Bugs-To: https://github.com/emirbelkahia/petit-form/issues\n"
 "POT-Creation-Date: 2026-09-13 12:00+0200\n"
 "PO-Revision-Date: 2026-09-13 12:00+0200\n"
@@ -20,6 +20,15 @@ msgstr "Envoyer"
 
 msgid "Thank you! Your message has been sent."
 msgstr "Merci ! Votre message a bien été envoyé."
+
+msgid "Please fill out this field."
+msgstr "Merci de renseigner ce champ."
+
+msgid "Please check this box to continue."
+msgstr "Merci de cocher cette case pour continuer."
+
+msgid "Please enter a valid email address."
+msgstr "Merci de saisir une adresse e-mail valide."
 
 msgid "Missing required \"id\" attribute (PF-E1001)."
 msgstr "Attribut « id » manquant (PF-E1001)."

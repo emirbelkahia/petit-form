@@ -35,6 +35,11 @@ Add a shortcode to a page:
 - Keys are normalized to lowercase ASCII; empty or duplicate normalized keys invalidate the form.
 - Optional `submit="Send"` and `success="Thank you!"` attributes change the button and confirmation.
 
+Petit Form keeps native browser constraint validation and supplies its required
+field, checkbox and email messages through the active WordPress locale. It
+still works without JavaScript, in which case the browser supplies its own
+validation text.
+
 Submissions use a server-side POST/redirect/get loop and return to the form
 fragment. On that one status response, Petit Form disables document-wide
 smooth scrolling so long pages do not visibly animate from the top back to the
