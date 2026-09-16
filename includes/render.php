@@ -51,18 +51,20 @@ function petit_form_disable_status_scroll_animation() {
  *   [petit-form id="guide" fields="name, email:required, phone, consent:checkbox:required:I accept the privacy policy" submit="Get the guide"]
  *
  * Attributes:
- *   id      (required) form identifier, used in hooks, rate limiting, leads table
- *   fields  (required) comma-separated field spec, see petit_form_parse_fields()
- *   submit  (optional) submit button label
- *   success (optional) success message
+ *   id           (required) form identifier, used in hooks, rate limiting, leads table
+ *   fields       (required) comma-separated field spec, see petit_form_parse_fields()
+ *   placeholders (optional) pipe-separated key=value placeholders
+ *   submit       (optional) submit button label
+ *   success      (optional) success message
  */
 function petit_form_shortcode( $atts ) {
 	$atts = shortcode_atts(
 		array(
-			'id'      => '',
-			'fields'  => 'name:required, email:required, message:textarea:required',
-			'submit'  => __( 'Send', 'petit-form' ),
-			'success' => __( 'Thank you! Your message has been sent.', 'petit-form' ),
+			'id'           => '',
+			'fields'       => 'name:required, email:required, message:textarea:required',
+			'placeholders' => '',
+			'submit'       => __( 'Send', 'petit-form' ),
+			'success'      => __( 'Thank you! Your message has been sent.', 'petit-form' ),
 		),
 		$atts,
 		'petit-form'
@@ -83,6 +85,7 @@ function petit_form_shortcode( $atts ) {
 			? '<p class="pf-error">[petit-form] ' . esc_html__( 'No usable fields (PF-E1001).', 'petit-form' ) . '</p>'
 			: '';
 	}
+	$placeholders = petit_form_parse_placeholders( $atts['placeholders'] );
 
 	petit_form_enqueue_assets();
 
@@ -117,7 +120,7 @@ function petit_form_shortcode( $atts ) {
 		<?php endif; ?>
 
 		<?php foreach ( $fields as $field ) : ?>
-			<?php petit_form_render_field( $field, $form_id ); ?>
+			<?php petit_form_render_field( $field, $form_id, isset( $placeholders[ $field['key'] ] ) ? $placeholders[ $field['key'] ] : '' ); ?>
 		<?php endforeach; ?>
 
 		<?php petit_form_render_trap_fields( $form_id, $atts['fields'] ); ?>
@@ -142,9 +145,10 @@ function petit_form_shortcode( $atts ) {
  * Render a single field row (label + input), fully escaped. The element id
  * is prefixed with the form id so two forms on one page never collide.
  */
-function petit_form_render_field( $field, $form_id = '' ) {
+function petit_form_render_field( $field, $form_id = '', $placeholder = '' ) {
 	$id        = 'pf-' . ( $form_id ? $form_id . '-' : '' ) . $field['key'];
 	$required  = $field['required'] ? ' required aria-required="true"' : '';
+	$hint      = '' !== $placeholder ? ' placeholder="' . esc_attr( $placeholder ) . '"' : '';
 	$maxlength = petit_form_max_length_for( $field['type'] );
 	?>
 	<p class="pf-field pf-field-<?php echo esc_attr( $field['type'] ); ?>">
@@ -152,13 +156,13 @@ function petit_form_render_field( $field, $form_id = '' ) {
 			<?php echo esc_html( $field['label'] ); ?><?php echo $field['required'] ? ' <span class="pf-required" aria-hidden="true">*</span>' : ''; ?>
 		</label>
 		<?php if ( 'textarea' === $field['type'] ) : ?>
-			<textarea id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" rows="5" maxlength="<?php echo (int) $maxlength; ?>"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?>></textarea>
+			<textarea id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" rows="5" maxlength="<?php echo (int) $maxlength; ?>"<?php echo $hint . $required; // phpcs:ignore WordPress.Security.EscapeOutput ?>></textarea>
 		<?php elseif ( 'checkbox' === $field['type'] ) : ?>
 			<span class="pf-checkbox-row">
 				<input type="checkbox" id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" value="1"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?> />
 			</span>
 		<?php else : ?>
-			<input type="<?php echo esc_attr( 'name' === $field['type'] ? 'text' : $field['type'] ); ?>" id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" maxlength="<?php echo (int) $maxlength; ?>"<?php echo $required; // phpcs:ignore WordPress.Security.EscapeOutput ?> />
+			<input type="<?php echo esc_attr( 'name' === $field['type'] ? 'text' : $field['type'] ); ?>" id="<?php echo esc_attr( $id ); ?>" name="pf_f_<?php echo esc_attr( $field['key'] ); ?>" maxlength="<?php echo (int) $maxlength; ?>"<?php echo $hint . $required; // phpcs:ignore WordPress.Security.EscapeOutput ?> />
 		<?php endif; ?>
 	</p>
 	<?php

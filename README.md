@@ -26,13 +26,14 @@ Upload the ZIP under **Plugins → Add New → Upload Plugin**, activate **Petit
 Add a shortcode to a page:
 
 ```text
-[petit-form id="contact" fields="name:required, email:required, telephone, message:textarea:required, consent:checkbox:required:I accept the privacy policy"]
+[petit-form id="contact" fields="name:required, email:required, telephone, message:textarea:required, consent:checkbox:required:I accept the privacy policy" placeholders="name=Your name|email=you@example.com|telephone=Phone (optional)|message=How can I help?"]
 ```
 
 - `id` is required. Use distinct IDs for forms on the same page.
 - `fields` defaults to required name, email and message fields. Syntax: `key[:type][:required][:Label]`, separated by commas. Commas and colons are reserved separators.
 - Types: `text`, `name`, `email`, `tel`, `textarea`, `checkbox`. Common keys infer their type, including `prenom`, `courriel`, `telephone`, `message`, `rgpd` and `consent`.
 - Keys are normalized to lowercase ASCII; empty or duplicate normalized keys invalidate the form.
+- Optional `placeholders="key=Hint|other=Another hint"` adds declarative hints to text fields and textareas. Pipes and equals signs are reserved separators. Invalid or duplicate entries discard the placeholder map without disabling the form. Placeholder text is presentation only: labels remain visible and submissions are unchanged.
 - Optional `submit="Send"` and `success="Thank you!"` attributes change the button and confirmation.
 
 Petit Form keeps native browser constraint validation and supplies its required

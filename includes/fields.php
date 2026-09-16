@@ -80,6 +80,40 @@ function petit_form_parse_fields( $spec ) {
 }
 
 /**
+ * Parse optional placeholders keyed by field name.
+ *
+ * Syntax: placeholders="name=Your name|email=you@example.com". Keys use the
+ * same normalization as field definitions. An invalid or duplicate entry
+ * rejects the complete placeholder map while leaving the form usable.
+ *
+ * @return array<string,string>
+ */
+function petit_form_parse_placeholders( $spec ) {
+	$spec = trim( (string) $spec );
+	if ( '' === $spec ) {
+		return array();
+	}
+
+	$placeholders = array();
+	foreach ( explode( '|', $spec ) as $chunk ) {
+		$parts = explode( '=', trim( $chunk ), 2 );
+		if ( 2 !== count( $parts ) ) {
+			return array();
+		}
+
+		$key         = sanitize_key( remove_accents( trim( $parts[0] ) ) );
+		$placeholder = sanitize_text_field( $parts[1] );
+		if ( '' === $key || '' === $placeholder || isset( $placeholders[ $key ] ) ) {
+			return array();
+		}
+
+		$placeholders[ $key ] = mb_substr( $placeholder, 0, 255 );
+	}
+
+	return $placeholders;
+}
+
+/**
  * Sensible default field type from its key.
  */
 function petit_form_default_type_for( $key ) {
