@@ -24,8 +24,12 @@
 		var field = event.target;
 		var form = formFor(field);
 		if (!form || typeof field.setCustomValidity !== "function") return;
+		// Read native validity before clearing a previous custom message. Some
+		// browsers recompute an empty email field during setCustomValidity(),
+		// which can otherwise lose the required-field message.
+		var message = messageFor(field, form);
 		field.setCustomValidity("");
-		field.setCustomValidity(messageFor(field, form));
+		field.setCustomValidity(message);
 	}, true);
 
 	function clearMessage(event) {
