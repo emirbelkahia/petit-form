@@ -137,6 +137,16 @@ ok( 'name' === $fields[0]['type'], 'prenom maps to name type' );
 ok( array() === petit_form_parse_fields( 'prénom, prenom' ), 'duplicate normalized keys reject the definition' );
 ok( array() === petit_form_parse_fields( '!!!:required' ), 'empty normalized key rejects the definition' );
 
+echo "placeholders parsing\n";
+
+$placeholders = petit_form_parse_placeholders( 'prénom=Ton prénom|email=tonadresse@example.com|message=Comment puis-je t’aider ?' );
+ok( 'Ton prénom' === $placeholders['prenom'], 'placeholder key normalization matches fields' );
+ok( 'tonadresse@example.com' === $placeholders['email'], 'email placeholder is preserved' );
+ok( 'Comment puis-je t’aider ?' === $placeholders['message'], 'Unicode placeholder is preserved' );
+ok( array() === petit_form_parse_placeholders( 'email=sans séparateur|cassé' ), 'malformed map is rejected' );
+ok( array() === petit_form_parse_placeholders( 'prénom=Un|prenom=Deux' ), 'duplicate normalized keys reject the map' );
+ok( 255 === mb_strlen( petit_form_parse_placeholders( 'message=' . str_repeat( 'a', 300 ) )['message'] ), 'placeholder length is capped' );
+
 echo "sanitization\n";
 
 ok( '' === petit_form_sanitize_value( '<script>alert(1)</script>', 'text' ), 'text: script block removed with content (like wp_strip_all_tags)' );

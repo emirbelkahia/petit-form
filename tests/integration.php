@@ -154,6 +154,18 @@ check( false !== strpos( $validation_html, 'data-pf-checkbox-message=' ), 'Form 
 check( false !== strpos( $validation_html, 'data-pf-email-message=' ), 'Form exposes a localized email validation message' );
 check( wp_script_is( 'petit-form', 'enqueued' ), 'Client validation helper is enqueued only when a form is rendered' );
 
+$placeholder_html = petit_form_shortcode(
+	array(
+		'id'           => 'placeholder-test',
+		'fields'       => 'prenom:required,email:required,message:textarea,consent:checkbox:I agree',
+		'placeholders' => 'prenom=Ton prénom|email=alice@example.com|message=Comment puis-je t’aider ?|consent=ignored',
+	)
+);
+check( false !== strpos( $placeholder_html, 'placeholder="Ton prénom"' ), 'Text input renders its configured placeholder' );
+check( false !== strpos( $placeholder_html, 'placeholder="alice@example.com"' ), 'Email input renders its configured placeholder' );
+check( false !== strpos( $placeholder_html, 'placeholder="Comment puis-je t’aider ?"' ), 'Textarea renders its configured placeholder' );
+check( 3 === substr_count( $placeholder_html, ' placeholder=' ), 'Checkbox ignores its configured placeholder' );
+
 foreach ( array( "J'accepte", 'Terms &amp; conditions', 'J&#039;accepte', 'A &quot;quote&quot;', 'Literal &amp;amp; text' ) as $label ) {
 	$spec = 'consent:checkbox:required:' . $label;
 	$html = petit_form_shortcode( array( 'id' => 'entities', 'fields' => $spec ) );
