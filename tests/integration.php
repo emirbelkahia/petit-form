@@ -154,6 +154,26 @@ check( false !== strpos( $validation_html, 'data-pf-checkbox-message=' ), 'Form 
 check( false !== strpos( $validation_html, 'data-pf-email-message=' ), 'Form exposes a localized email validation message' );
 check( wp_script_is( 'petit-form', 'enqueued' ), 'Client validation helper is enqueued only when a form is rendered' );
 
+$multi_form_html = petit_form_shortcode( array( 'id' => 'contact' ) ) . petit_form_shortcode( array( 'id' => 'newsletter' ) );
+$multi_form_dom  = new DOMDocument();
+$previous        = libxml_use_internal_errors( true );
+$multi_form_dom->loadHTML( '<?xml encoding="UTF-8">' . $multi_form_html );
+libxml_clear_errors();
+libxml_use_internal_errors( $previous );
+$nonce_ids    = array();
+$nonce_values = array();
+foreach ( $multi_form_dom->getElementsByTagName( 'input' ) as $input ) {
+	if ( 'pf_nonce' !== $input->getAttribute( 'name' ) ) {
+		continue;
+	}
+	$nonce_ids[]    = $input->getAttribute( 'id' );
+	$nonce_values[] = $input->getAttribute( 'value' );
+}
+check( array( 'pf-contact-nonce', 'pf-newsletter-nonce' ) === $nonce_ids, 'Two forms render distinct deterministic nonce element IDs' );
+check( 2 === count( array_unique( $nonce_ids ) ), 'A page with two forms has no duplicate nonce ID' );
+check( 1 === wp_verify_nonce( $nonce_values[0], 'petit_form_submit_contact' ), 'Contact nonce keeps its form-specific action' );
+check( 1 === wp_verify_nonce( $nonce_values[1], 'petit_form_submit_newsletter' ), 'Newsletter nonce keeps its form-specific action' );
+
 $placeholder_html = petit_form_shortcode(
 	array(
 		'id'           => 'placeholder-test',

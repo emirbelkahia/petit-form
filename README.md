@@ -71,7 +71,7 @@ After the final failed attempt, automatic retries stop; the lead remains availab
 
 ## Security and deployment
 
-- Every submission requires a WordPress nonce and an HMAC signature covering timestamp, form ID and field definition. These prevent field-definition tampering. Public tokens can be fetched and replayed; WordPress guests share a nonce by default, so the nonce does not establish a visitor's identity or prove humanity.
+- Every submission requires a WordPress nonce and an HMAC signature covering timestamp, form ID and field definition. These prevent field-definition tampering. Nonce inputs keep the shared POST name `pf_nonce` while their HTML IDs include the form ID, so multiple forms can coexist in one valid document. Public tokens can be fetched and replayed; WordPress guests share a nonce by default, so the nonce does not establish a visitor's identity or prove humanity.
 - A honeypot and minimum fill time (default three seconds) reject basic automation. Signed forms expire after 24 hours; WordPress nonces normally expire after 12–24 hours.
 - The default quota is **10 locally valid attempts per IP and form per fixed UTC hour**, consumed atomically in the database before Turnstile. Local field-validation errors do not count; rejected CAPTCHA attempts and subsequent storage failures do. Settings allow 1–100 attempts per 60–86,400-second window. A burst can span two adjacent windows; this is not DDoS protection.
 - Turnstile is enabled only when both keys are configured. Invalid tokens and non-200 responses below 500 are rejected. Network errors and HTTP 5xx **fail open**, accepting within the local quota and logging PF-E2008.
