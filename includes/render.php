@@ -129,7 +129,12 @@ function petit_form_shortcode( $atts ) {
 		<?php // Double-encode existing entities so the browser posts the exact signed bytes. ?>
 		<input type="hidden" name="pf_fields" value="<?php echo htmlspecialchars( $atts['fields'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true ); ?>" />
 		<input type="hidden" name="pf_back" value="<?php echo esc_url( petit_form_current_url() ); ?>" />
-		<?php wp_nonce_field( 'petit_form_submit_' . $form_id, 'pf_nonce' ); ?>
+		<input
+			type="hidden"
+			id="pf-<?php echo esc_attr( $form_id ); ?>-nonce"
+			name="pf_nonce"
+			value="<?php echo esc_attr( wp_create_nonce( 'petit_form_submit_' . $form_id ) ); ?>"
+		/>
 
 		<?php if ( petit_form_turnstile_enabled() ) : ?>
 			<div class="cf-turnstile" data-sitekey="<?php echo esc_attr( get_option( 'petit_form_turnstile_site_key', '' ) ); ?>"></div>
