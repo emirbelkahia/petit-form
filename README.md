@@ -41,6 +41,14 @@ field, checkbox and email messages through the active WordPress locale. It
 still works without JavaScript, in which case the browser supplies its own
 validation text.
 
+Pages can remain open after the original WordPress nonce expires. When a form
+is more than ten hours old, the small front-end helper refreshes its nonce and
+signed time token before allowing the existing native POST to continue. The
+refresh authenticates the exact public form definition and never stores a lead
+or invokes a notification transport. Repeated clicks share one refresh and
+resume one submission. If refresh is unavailable, the form keeps the visitor's
+entered values in place and shows the normal expiry guidance.
+
 Submissions use a server-side POST/redirect/get loop and return to the form
 fragment. On that one status response, Petit Form disables document-wide
 smooth scrolling so long pages do not visibly animate from the top back to the
@@ -71,7 +79,7 @@ After the final failed attempt, automatic retries stop; the lead remains availab
 
 ## Security and deployment
 
-- Every submission requires a WordPress nonce and an HMAC signature covering timestamp, form ID and field definition. These prevent field-definition tampering. Nonce inputs keep the shared POST name `pf_nonce` while their HTML IDs include the form ID, so multiple forms can coexist in one valid document. Public tokens can be fetched and replayed; WordPress guests share a nonce by default, so the nonce does not establish a visitor's identity or prove humanity.
+- Every submission requires a WordPress nonce and an HMAC signature covering timestamp, form ID and field definition. These prevent field-definition tampering. A separate HMAC binds public refresh requests to the exact rendered form definition. Nonce inputs keep the shared POST name `pf_nonce` while their HTML IDs include the form ID, so multiple forms can coexist in one valid document. Public tokens can be fetched and replayed; WordPress guests share a nonce by default, so the nonce does not establish a visitor's identity or prove humanity.
 - A honeypot and minimum fill time (default three seconds) reject basic automation. Signed forms expire after 24 hours; WordPress nonces normally expire after 12–24 hours.
 - The default quota is **10 locally valid attempts per IP and form per fixed UTC hour**, consumed atomically in the database before Turnstile. Local field-validation errors do not count; rejected CAPTCHA attempts and subsequent storage failures do. Settings allow 1–100 attempts per 60–86,400-second window. A burst can span two adjacent windows; this is not DDoS protection.
 - Turnstile is enabled only when both keys are configured. Invalid tokens and non-200 responses below 500 are rejected. Network errors and HTTP 5xx **fail open**, accepting within the local quota and logging PF-E2008.
@@ -79,7 +87,7 @@ After the final failed attempt, automatic retries stop; the lead remains availab
 
 Check these deployment conditions:
 
-1. Keep form-page cache lifetime below 12 hours, including any CDN cache. Purge cached forms after changing their definition or upgrading. Reloading cannot repair an expired form if the cache still serves it.
+1. Keep form-page cache lifetime below 12 hours, including any CDN cache. Six hours gives a practical margin for WordPress nonces. Purge cached forms after changing their definition or upgrading. Token refresh protects pages left open and cached HTML that outlives its intended expiry; it does not replace a bounded cache policy.
 2. Allow anonymous POST requests to `/wp-admin/admin-post.php`.
 3. `REMOTE_ADDR` is the default IP source. Behind a trusted proxy, configure `petit_form_client_ip` to resolve the real client safely. Never blindly trust `X-Forwarded-For`; otherwise visitors may share the proxy's quota. IPv6 addresses share a bucket per /64.
 4. Verify an actual submission, the saved row, and notification delivery after deployment. Keep a restorable database backup. Schema upgrades run on admin requests and delivery runs; missing tables are also checked during admin visits and repaired once after a failed insert. Recreating a missing table cannot recover its old rows.
@@ -138,7 +146,7 @@ Rejections show a friendly message and a stable code. PHP logs include codes, te
 
 ## Development
 
-Run `php tests/smoke.php` for isolated logic tests. For real WordPress/MariaDB tests, including concurrent quota and delivery workers, run `bash tests/run-integration.sh latest` against a disposable database server. Set `PF_DB_HOST`, `PF_DB_PORT`, `PF_DB_USER` and `PF_DB_PASSWORD` as needed (defaults: `127.0.0.1`, `3306`, `root`, empty). The runner creates and removes its own database and temporary WordPress installation; the database account needs create/drop privileges. PHP needs `mysqli`, `mbstring`, `dom` and `zip`; the runner also uses `curl`.
+Run `php tests/smoke.php` for isolated logic tests and `node tests/browser.cjs` for the token-refresh browser behavior. For real WordPress/MariaDB tests, including concurrent quota and delivery workers, run `bash tests/run-integration.sh latest` against a disposable database server. Set `PF_DB_HOST`, `PF_DB_PORT`, `PF_DB_USER` and `PF_DB_PASSWORD` as needed (defaults: `127.0.0.1`, `3306`, `root`, empty). The runner creates and removes its own database and temporary WordPress installation; the database account needs create/drop privileges. PHP needs `mysqli`, `mbstring`, `dom` and `zip`; the runner also uses `curl`.
 
 GitHub Actions runs lint, smoke and integration tests at the declared minimum versions and on current runtimes, and builds a ZIP from the tested commit. README, code comments and commit messages are written in English.
 

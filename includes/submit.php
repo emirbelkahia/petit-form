@@ -103,6 +103,22 @@ function petit_form_handle_submit() {
 }
 
 /**
+ * Refresh public form tokens without submitting or storing a lead.
+ */
+function petit_form_handle_token_refresh() {
+	$request = array();
+	foreach ( array( 'pf_form_id', 'pf_fields', 'pf_definition_sig' ) as $key ) {
+		$request[ $key ] = isset( $_POST[ $key ] ) && is_string( $_POST[ $key ] ) ? wp_unslash( $_POST[ $key ] ) : '';
+	}
+	$result = petit_form_refresh_tokens( $request );
+	if ( is_wp_error( $result ) ) {
+		petit_form_log( $result->get_error_code(), $result->get_error_message() );
+		wp_send_json_error( array( 'code' => $result->get_error_code() ), 400 );
+	}
+	wp_send_json_success( $result );
+}
+
+/**
  * Redirect helper: back to the originating page with a status query arg.
  */
 function petit_form_redirect_back( $url, $form_id, $error_code ) {

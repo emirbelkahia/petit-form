@@ -44,6 +44,24 @@ function petit_form_disable_status_scroll_animation() {
 }
 
 /**
+ * A status URL must be rendered by WordPress, never replayed from page cache.
+ *
+ * Besides keeping success/error feedback accurate, this guarantees that the
+ * no-JavaScript recovery path after an expired form receives fresh tokens.
+ */
+function petit_form_mark_status_response_uncacheable() {
+	$status  = isset( $_GET['pf_status'] ) && is_string( $_GET['pf_status'] ) ? sanitize_key( wp_unslash( $_GET['pf_status'] ) ) : '';
+	$form_id = isset( $_GET['pf_form'] ) && is_string( $_GET['pf_form'] ) ? sanitize_key( wp_unslash( $_GET['pf_form'] ) ) : '';
+	if ( ! in_array( $status, array( 'ok', 'error' ), true ) || ! preg_match( '/^[a-z0-9_-]{1,64}$/D', $form_id ) ) {
+		return;
+	}
+	if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+		define( 'DONOTCACHEPAGE', true );
+	}
+	nocache_headers();
+}
+
+/**
  * Shortcode handler.
  *
  * Examples:
@@ -108,6 +126,7 @@ function petit_form_shortcode( $atts ) {
 		data-pf-required-message="<?php echo esc_attr__( 'Please fill out this field.', 'petit-form' ); ?>"
 		data-pf-checkbox-message="<?php echo esc_attr__( 'Please check this box to continue.', 'petit-form' ); ?>"
 		data-pf-email-message="<?php echo esc_attr__( 'Please enter a valid email address.', 'petit-form' ); ?>"
+		data-pf-expired-message="<?php echo esc_attr( petit_form_user_message_for( 'PF-E2001' ) ); ?>"
 	>
 		<?php if ( $is_ours && 'ok' === $status ) : ?>
 			<p class="pf-success" role="status"><?php echo esc_html( $atts['success'] ); ?></p>
@@ -118,6 +137,7 @@ function petit_form_shortcode( $atts ) {
 				<code><?php echo esc_html( $err_code ); ?></code>
 			</p>
 		<?php endif; ?>
+		<p class="pf-error pf-token-error" role="alert" hidden></p>
 
 		<?php foreach ( $fields as $field ) : ?>
 			<?php petit_form_render_field( $field, $form_id, isset( $placeholders[ $field['key'] ] ) ? $placeholders[ $field['key'] ] : '' ); ?>
@@ -128,6 +148,7 @@ function petit_form_shortcode( $atts ) {
 		<input type="hidden" name="pf_form_id" value="<?php echo esc_attr( $form_id ); ?>" />
 		<?php // Double-encode existing entities so the browser posts the exact signed bytes. ?>
 		<input type="hidden" name="pf_fields" value="<?php echo htmlspecialchars( $atts['fields'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true ); ?>" />
+		<input type="hidden" name="pf_definition_sig" value="<?php echo esc_attr( petit_form_definition_sign( $form_id, $atts['fields'] ) ); ?>" />
 		<input type="hidden" name="pf_back" value="<?php echo esc_url( petit_form_current_url() ); ?>" />
 		<input
 			type="hidden"

@@ -173,6 +173,36 @@ check( array( 'pf-contact-nonce', 'pf-newsletter-nonce' ) === $nonce_ids, 'Two f
 check( 2 === count( array_unique( $nonce_ids ) ), 'A page with two forms has no duplicate nonce ID' );
 check( 1 === wp_verify_nonce( $nonce_values[0], 'petit_form_submit_contact' ), 'Contact nonce keeps its form-specific action' );
 check( 1 === wp_verify_nonce( $nonce_values[1], 'petit_form_submit_newsletter' ), 'Newsletter nonce keeps its form-specific action' );
+check( 2 === substr_count( $multi_form_html, 'name="pf_definition_sig"' ), 'Each rendered form carries a definition proof for token refresh' );
+check( false !== has_action( 'template_redirect', 'petit_form_mark_status_response_uncacheable' ), 'Status responses register an early no-cache recovery path' );
+
+$refresh_spec  = 'name:required,email:required,message:textarea:required';
+$refresh_proof = petit_form_definition_sign( 'contact', $refresh_spec );
+$fresh_tokens  = petit_form_refresh_tokens(
+	array(
+		'pf_form_id'        => 'contact',
+		'pf_fields'         => $refresh_spec,
+		'pf_definition_sig' => $refresh_proof,
+	)
+);
+check( is_array( $fresh_tokens ) && 1 === wp_verify_nonce( $fresh_tokens['nonce'], 'petit_form_submit_contact' ), 'Refresh issues a valid form-specific nonce' );
+check( true === petit_form_verify_traps( array( 'pf_hp_x91' => '', 'pf_ts' => $fresh_tokens['timestamp'], 'pf_sig' => $fresh_tokens['signature'], 'pf_fields' => $refresh_spec ), 'contact' ), 'Refresh issues a matching time-trap signature' );
+$forged_refresh = petit_form_refresh_tokens(
+	array(
+		'pf_form_id'        => 'contact',
+		'pf_fields'         => 'email',
+		'pf_definition_sig' => $refresh_proof,
+	)
+);
+check( is_wp_error( $forged_refresh ) && 'PF-E2004' === $forged_refresh->get_error_code(), 'Refresh refuses a modified field definition' );
+$moved_refresh = petit_form_refresh_tokens(
+	array(
+		'pf_form_id'        => 'newsletter',
+		'pf_fields'         => $refresh_spec,
+		'pf_definition_sig' => $refresh_proof,
+	)
+);
+check( is_wp_error( $moved_refresh ) && 'PF-E2004' === $moved_refresh->get_error_code(), 'Refresh refuses a definition proof moved to another form' );
 
 $placeholder_html = petit_form_shortcode(
 	array(
@@ -252,6 +282,42 @@ update_option( 'petit_form_rate_max', 10 );
 check( false !== strpos( submit( 'tamper', array( 'pf_fields' => 'email' ) ), 'PF-E2004' ), 'Field-spec tampering remains rejected' );
 check( false !== strpos( submit( 'nonce', array( 'pf_nonce' => 'invalid' ) ), 'PF-E2001' ), 'Invalid nonce rejected' );
 check( false === strpos( submit( 'redirect', array( 'pf_back' => 'https://attacker.invalid/' ) ), 'attacker.invalid' ), 'External return URL rejected' );
+$expired_spec = 'name:required,email:required,message:textarea:required';
+$expired_ts   = (string) ( time() - DAY_IN_SECONDS - 60 );
+check(
+	false !== strpos(
+		submit(
+		'expired',
+		array(
+			'pf_ts'  => $expired_ts,
+			'pf_sig' => petit_form_time_trap_sign( $expired_ts, 'expired', $expired_spec ),
+		)
+	),
+	'PF-E2004'
+	),
+	'A form left open for more than 24 hours is rejected before storage'
+);
+$renewed = petit_form_refresh_tokens(
+	array(
+		'pf_form_id'        => 'expired',
+		'pf_fields'         => $expired_spec,
+		'pf_definition_sig' => petit_form_definition_sign( 'expired', $expired_spec ),
+	)
+);
+check(
+	false !== strpos(
+		submit(
+		'expired',
+		array(
+			'pf_nonce' => $renewed['nonce'],
+			'pf_ts'    => $renewed['timestamp'],
+			'pf_sig'   => $renewed['signature'],
+		)
+	),
+	'pf_status=ok'
+	),
+	'The same old form submits successfully after token refresh'
+);
 
 // Persist the queue atomically with the lead; no transport in the submit handler.
 $wpdb->query( "TRUNCATE TABLE $table" );

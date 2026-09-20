@@ -43,6 +43,8 @@ jobs:
         run: for file in ./*.php includes/*.php tests/*.php; do php -l "$file"; done
       - name: Isolated logic
         run: php tests/smoke.php
+      - name: Browser behavior
+        run: node tests/browser.cjs
       - name: WordPress integration
         run: bash tests/run-integration.sh '${{ matrix.wordpress }}'
 

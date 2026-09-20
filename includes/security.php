@@ -61,6 +61,66 @@ function petit_form_time_trap_sign( $timestamp, $form_id, $spec = '' ) {
 }
 
 /**
+ * Sign the immutable form definition used by the public token refresh.
+ *
+ * Refreshing an expired nonce is intentionally possible without an existing
+ * nonce. The definition proof prevents that public endpoint from signing an
+ * attacker-supplied field specification or moving a specification to another
+ * form ID. The proof is safe to expose: it authenticates public form metadata,
+ * not a user or a submission.
+ */
+function petit_form_definition_sign( $form_id, $spec = '' ) {
+	return hash_hmac( 'sha256', 'petit-form-definition|' . $form_id . '|' . $spec, wp_salt( 'nonce' ) );
+}
+
+/**
+ * Return a fresh, mutually consistent set of public submission tokens.
+ */
+function petit_form_issue_tokens( $form_id, $spec ) {
+	// Refresh happens only when the visitor submits an old form. Backdate the
+	// renewed time trap by the configured fill-time minimum so the immediate
+	// native POST is not mistaken for a bot that filled a new form too fast.
+	$minimum   = max( 0, min( DAY_IN_SECONDS - 1, (int) get_option( 'petit_form_min_seconds', 3 ) ) );
+	$timestamp = time() - $minimum;
+	return array(
+		'nonce'     => wp_create_nonce( 'petit_form_submit_' . $form_id ),
+		'timestamp' => (string) $timestamp,
+		'signature' => petit_form_time_trap_sign( $timestamp, $form_id, $spec ),
+	);
+}
+
+/**
+ * Validate a public refresh request and issue tokens for the exact rendered
+ * form definition. No lead is stored and no delivery side effect runs here.
+ *
+ * @param array $request Unslashed request values.
+ * @return array|WP_Error
+ */
+function petit_form_refresh_tokens( $request ) {
+	$form_id = isset( $request['pf_form_id'] ) && is_string( $request['pf_form_id'] )
+		? substr( sanitize_key( $request['pf_form_id'] ), 0, 64 )
+		: '';
+	$spec = isset( $request['pf_fields'] ) && is_string( $request['pf_fields'] )
+		? $request['pf_fields']
+		: '';
+	$proof = isset( $request['pf_definition_sig'] ) && is_string( $request['pf_definition_sig'] )
+		? sanitize_text_field( $request['pf_definition_sig'] )
+		: '';
+
+	if (
+		'' === $form_id ||
+		'' === $spec ||
+		! preg_match( '/^[a-f0-9]{64}$/D', $proof ) ||
+		! hash_equals( petit_form_definition_sign( $form_id, $spec ), $proof ) ||
+		empty( petit_form_parse_fields( $spec ) )
+	) {
+		return new WP_Error( 'PF-E2004', 'Form definition proof is missing or invalid.' );
+	}
+
+	return petit_form_issue_tokens( $form_id, $spec );
+}
+
+/**
  * Render the hidden anti-bot fields: honeypot + signed time-trap.
  * The honeypot is invisible to humans (CSS + aria-hidden + tabindex) but
  * bots that fill every field will populate it.

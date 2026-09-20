@@ -80,6 +80,10 @@ function wp_salt( $scheme = 'auth' ) {
 	return 'test-salt-for-smoke-tests';
 }
 
+function wp_create_nonce( $action = -1 ) {
+	return substr( hash_hmac( 'sha256', (string) $action, wp_salt( 'nonce' ) ), 0, 10 );
+}
+
 $GLOBALS['pf_test_options'] = array(
 	'petit_form_rate_max'    => 3,
 	'petit_form_rate_window' => 3600,
@@ -208,6 +212,17 @@ ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'stale form (>
 $cache_ts  = time() - 3 * 3600;
 $cache_sig = petit_form_time_trap_sign( $cache_ts, 'contact', $spec );
 ok( true === petit_form_verify_traps( array( 'pf_hp_x91' => '', 'pf_ts' => (string) $cache_ts, 'pf_sig' => $cache_sig, 'pf_fields' => $spec ), 'contact' ), 'page-cache scenario: 3h-old form still valid' );
+
+echo "token refresh\n";
+
+$definition_proof = petit_form_definition_sign( 'contact', $spec );
+$fresh = petit_form_refresh_tokens( array( 'pf_form_id' => 'contact', 'pf_fields' => $spec, 'pf_definition_sig' => $definition_proof ) );
+ok( is_array( $fresh ) && $fresh['nonce'] === wp_create_nonce( 'petit_form_submit_contact' ), 'valid definition proof issues a fresh nonce' );
+ok( true === petit_form_verify_traps( array( 'pf_hp_x91' => '', 'pf_ts' => $fresh['timestamp'], 'pf_sig' => $fresh['signature'], 'pf_fields' => $spec ), 'contact' ), 'fresh signature matches the rendered definition' );
+$err = petit_form_refresh_tokens( array( 'pf_form_id' => 'contact', 'pf_fields' => 'email', 'pf_definition_sig' => $definition_proof ) );
+ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'definition proof blocks a modified spec' );
+$err = petit_form_refresh_tokens( array( 'pf_form_id' => 'newsletter', 'pf_fields' => $spec, 'pf_definition_sig' => $definition_proof ) );
+ok( is_wp_error( $err ) && 'PF-E2004' === $err->get_error_code(), 'definition proof is bound to its form ID' );
 
 echo "fields spec tampering\n";
 
