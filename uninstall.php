@@ -20,7 +20,6 @@ if ( ! get_option( 'petit_form_delete_data_on_uninstall', false ) ) {
 	return;
 }
 
-global $wpdb;
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}petitform_leads" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 $options = array(
@@ -40,6 +39,3 @@ $options = array(
 foreach ( $options as $option ) {
 	delete_option( $option );
 }
-
-// Rate-limit transients.
-$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_pf\_rl\_%' OR option_name LIKE '\_transient\_timeout\_pf\_rl\_%'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
