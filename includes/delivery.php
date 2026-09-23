@@ -25,6 +25,20 @@ function petit_form_schedule_delivery() {
 	}
 }
 
+/**
+ * Schedule health shared by the PF-E4003 admin warning and the probe.
+ * A disabled visit trigger is valid when a host scheduler runs WP-Cron.
+ *
+ * @return string '' when healthy, 'missing' or 'late'.
+ */
+function petit_form_delivery_problem() {
+	$next = wp_next_scheduled( 'petit_form_deliver_pending' );
+	if ( false === $next ) {
+		return 'missing';
+	}
+	return $next < time() - 15 * MINUTE_IN_SECONDS ? 'late' : '';
+}
+
 function petit_form_deactivate() {
 	wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
 }

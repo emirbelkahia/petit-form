@@ -137,6 +137,13 @@ function petit_form_handle_probe() {
 	if ( is_wp_error( $checked ) ) {
 		wp_send_json_error( array( 'code' => $checked->get_error_code() ), 400 );
 	}
+	// Failures the checks cannot see; both also raise an admin warning.
+	if ( get_option( 'petit_form_storage_error' ) ) {
+		wp_send_json_error( array( 'code' => 'PF-E3001' ), 503 );
+	}
+	if ( '' !== petit_form_delivery_problem() ) {
+		wp_send_json_error( array( 'code' => 'PF-E4003' ), 503 );
+	}
 	wp_send_json_success( array( 'ok' => true, 'turnstile' => 'skipped' ), 200 );
 }
 

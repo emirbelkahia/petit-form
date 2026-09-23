@@ -378,6 +378,16 @@ list( $status, $body ) = probe( 'probe-secret', 'probe-secret', array( 'pf_field
 check( 400 === $status && 'PF-E2004' === $body['data']['code'] && $leads === $wpdb->get_var( $lead_count ), 'Probe reports a modified field definition as PF-E2004' );
 list( $status, $body ) = probe( 'probe-secret', 'probe-secret', array( 'pf_f_email' => 'invalid' ) );
 check( 400 === $status && 'PF-E1102' === $body['data']['code'] && $leads === $wpdb->get_var( $lead_count ), 'Probe runs field validation' );
+update_option( 'petit_form_storage_error', true, false );
+list( $status, $body ) = probe( 'probe-secret', 'probe-secret' );
+delete_option( 'petit_form_storage_error' );
+check( 503 === $status && 'PF-E3001' === $body['data']['code'], 'Probe reports a failed lead write as PF-E3001' );
+wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
+wp_schedule_event( time() - 16 * MINUTE_IN_SECONDS, 'petit_form_minute', 'petit_form_deliver_pending' );
+list( $status, $body ) = probe( 'probe-secret', 'probe-secret' );
+wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
+petit_form_schedule_delivery();
+check( 503 === $status && 'PF-E4003' === $body['data']['code'], 'Probe reports a stalled notification task as PF-E4003' );
 
 // Persist the queue atomically with the lead; no transport in the submit handler.
 $wpdb->query( "TRUNCATE TABLE $table" );

@@ -161,8 +161,9 @@ For each check, load the form page as an anonymous visitor and keep the rendered
 | 400 | `{"success":false,"data":{"code":"PF-E2001"}}` | A check failed; the code is the one a real submission would show (see Diagnostics) |
 | 403 | `{"success":false}` | Missing or wrong key |
 | 404 | WordPress error page | `PETIT_FORM_PROBE_KEY` is not defined or is empty |
+| 503 | `{"success":false,"data":{"code":"PF-E3001"}}` | The checks pass, but the last lead write failed (PF-E3001) or the notification task is missing or overdue (PF-E4003) |
 
-The probe runs the nonce, honeypot, signed time-trap and field validation steps of a real submission, then stops. It stores no lead, queues no notification, does not fire `petit_form_lead_created`, does not consume the attempt quota and never calls Turnstile. A 200 therefore does not prove that Turnstile, storage or delivery work. Wrong keys are not rate-limited: use a long random value and keep it out of version control.
+The probe runs the nonce, honeypot, signed time-trap and field validation steps of a real submission, then reads the same storage and cron health as the administrator warnings. It stores no lead, queues no notification, does not fire `petit_form_lead_created`, does not consume the attempt quota and never calls Turnstile. A 200 therefore does not prove that Turnstile accepts visitors, that the next write succeeds or that mail and webhooks are delivered. Wrong keys are not rate-limited: use a long random value and keep it out of version control.
 
 ## Development
 

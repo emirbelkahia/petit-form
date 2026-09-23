@@ -328,10 +328,9 @@ function petit_form_admin_notices() {
 		if ( get_option( 'petit_form_storage_error' ) ) {
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Petit Form could not write to its leads table. Check database permissions and the PHP error log (PF-E3001/PF-E3002).', 'petit-form' ) . '</p></div>';
 		}
-		// A disabled visit trigger is valid when a host scheduler runs WP-Cron.
-		$next = wp_next_scheduled( 'petit_form_deliver_pending' );
-		if ( false === $next || $next < time() - 15 * MINUTE_IN_SECONDS ) {
-			$message = false === $next
+		$problem = petit_form_delivery_problem();
+		if ( '' !== $problem ) {
+			$message = 'missing' === $problem
 				? __( 'Petit Form notification task is missing (PF-E4003). Saved leads remain available.', 'petit-form' )
 				: __( 'Petit Form notification task is more than 15 minutes late (PF-E4003). Saved leads remain available; notifications may be delayed.', 'petit-form' );
 			echo '<div class="notice notice-warning"><p>' . esc_html( $message ) . '</p><p>'
