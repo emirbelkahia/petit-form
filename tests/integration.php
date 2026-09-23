@@ -11,6 +11,23 @@ if ( DB_NAME !== file_get_contents( ABSPATH . 'petit-form-test-environment' ) ||
 $_SERVER['REMOTE_ADDR'] = '203.0.113.10';
 $_SERVER['REQUEST_URI'] = '/contact/';
 
+// One probe request per process: the status code is readable only before any output.
+if ( 'probe' === ( $argv[1] ?? '' ) ) {
+	$request = json_decode( getenv( 'PF_TEST_PROBE' ), true );
+	if ( null !== $request['key'] ) {
+		define( 'PETIT_FORM_PROBE_KEY', $request['key'] );
+	}
+	$_SERVER['HTTP_X_PETIT_FORM_PROBE'] = wp_slash( $request['header'] );
+	$_POST = wp_slash( $request['post'] );
+	$hooks = 0;
+	add_action( 'petit_form_lead_created', function () use ( &$hooks ) { ++$hooks; } );
+	register_shutdown_function( function () use ( &$hooks, $root ) {
+		file_put_contents( $root . '/probe-meta', json_encode( array( 'status' => http_response_code(), 'hooks' => $hooks ) ) );
+	} );
+	do_action( 'admin_post_nopriv_petit_form_probe' );
+	exit( 3 );
+}
+
 if ( isset( $argv[1] ) ) {
 	file_put_contents( $root . '/ready-' . getmypid(), '' );
 	$deadline = microtime( true ) + 20;
@@ -75,16 +92,35 @@ add_filter( 'wp_redirect', function ( $url ) { throw new TestRedirect( $url ); }
 add_filter( 'wp_die_handler', function () {
 	return function ( $message ) { throw new TestDenied( strip_tags( $message ) ); };
 } );
-function submit( $id, $changes = array() ) {
+function submission( $id, $changes = array() ) {
 	$spec = 'name:required,email:required,message:textarea:required';
 	$ts = (string) ( time() - 10 );
-	$_POST = wp_slash( array_merge( array(
+	return array_merge( array(
 		'pf_form_id' => $id, 'pf_fields' => $spec, 'pf_ts' => $ts,
 		'pf_sig' => petit_form_time_trap_sign( $ts, $id, $spec ),
 		'pf_nonce' => wp_create_nonce( 'petit_form_submit_' . $id ),
 		'pf_hp_x91' => '', 'pf_back' => '/contact/',
 		'pf_f_name' => 'Audit', 'pf_f_email' => 'audit@example.invalid', 'pf_f_message' => "Hello, it's a test.",
-	), $changes ) );
+	), $changes );
+}
+function probe( $key, $header, $changes = array() ) {
+	global $root;
+	if ( is_file( $root . '/probe-meta' ) ) {
+		unlink( $root . '/probe-meta' );
+	}
+	putenv( 'PF_TEST_PROBE=' . json_encode( array( 'key' => $key, 'header' => $header, 'post' => submission( 'probe', $changes ) ) ) );
+	$process = proc_open( array( PHP_BINARY, __FILE__, 'probe' ), array( 1 => array( 'pipe', 'w' ), 2 => array( 'pipe', 'w' ) ), $pipes );
+	$body = stream_get_contents( $pipes[1] );
+	$errors = stream_get_contents( $pipes[2] );
+	fclose( $pipes[1] );
+	fclose( $pipes[2] );
+	check( 0 === proc_close( $process ), 'Probe handler ended the request itself: ' . $errors );
+	putenv( 'PF_TEST_PROBE' );
+	$meta = json_decode( file_get_contents( $root . '/probe-meta' ), true );
+	return array( $meta['status'], json_decode( $body, true ), $meta['hooks'] );
+}
+function submit( $id, $changes = array() ) {
+	$_POST = wp_slash( submission( $id, $changes ) );
 	try {
 		do_action( 'admin_post_nopriv_petit_form_submit' );
 	} catch ( TestRedirect $redirect ) {
@@ -318,6 +354,30 @@ check(
 	),
 	'The same old form submits successfully after token refresh'
 );
+
+// The monitoring probe replays the checks without storing, notifying or consuming quota.
+$lead_count = "SELECT COUNT(*) FROM $table";
+$quota_rows = "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE 'petit_form_rate_%' ORDER BY option_name";
+$leads = $wpdb->get_var( $lead_count );
+$quota = $wpdb->get_results( $quota_rows );
+list( $status ) = probe( null, 'probe-secret' );
+check( 404 === $status && $leads === $wpdb->get_var( $lead_count ), 'Probe does not exist without PETIT_FORM_PROBE_KEY' );
+list( $status ) = probe( '', '' );
+check( 404 === $status && $leads === $wpdb->get_var( $lead_count ), 'Probe does not exist with an empty PETIT_FORM_PROBE_KEY' );
+list( $status, $body ) = probe( 'probe-secret', 'wrong-secret' );
+check( 403 === $status && array( 'success' => false ) === $body && $leads === $wpdb->get_var( $lead_count ), 'Probe rejects a wrong key' );
+update_option( 'petit_form_turnstile_site_key', 'test-site' );
+list( $status, $body, $hooks ) = probe( 'probe-secret', 'probe-secret' );
+update_option( 'petit_form_turnstile_site_key', '' );
+check( 200 === $status && array( 'success' => true, 'data' => array( 'ok' => true, 'turnstile' => 'skipped' ) ) === $body, 'Valid probe answers 200 and reports Turnstile as skipped' );
+check( $leads === $wpdb->get_var( $lead_count ) && 0 === $hooks, 'Valid probe stores no lead and does not fire petit_form_lead_created' );
+check( $quota == $wpdb->get_results( $quota_rows ), 'Valid probe consumes no attempt' );
+list( $status, $body ) = probe( 'probe-secret', 'probe-secret', array( 'pf_nonce' => 'invalid' ) );
+check( 400 === $status && 'PF-E2001' === $body['data']['code'] && $leads === $wpdb->get_var( $lead_count ), 'Probe reports an invalid nonce as PF-E2001' );
+list( $status, $body ) = probe( 'probe-secret', 'probe-secret', array( 'pf_fields' => 'email' ) );
+check( 400 === $status && 'PF-E2004' === $body['data']['code'] && $leads === $wpdb->get_var( $lead_count ), 'Probe reports a modified field definition as PF-E2004' );
+list( $status, $body ) = probe( 'probe-secret', 'probe-secret', array( 'pf_f_email' => 'invalid' ) );
+check( 400 === $status && 'PF-E1102' === $body['data']['code'] && $leads === $wpdb->get_var( $lead_count ), 'Probe runs field validation' );
 
 // Persist the queue atomically with the lead; no transport in the submit handler.
 $wpdb->query( "TRUNCATE TABLE $table" );

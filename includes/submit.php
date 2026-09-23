@@ -119,6 +119,67 @@ function petit_form_handle_token_refresh() {
 }
 
 /**
+ * Monitoring probe: replay the checks of a real submission and answer in
+ * JSON. Exists only when the site defines PETIT_FORM_PROBE_KEY. Never stores
+ * a lead, queues a notification, fires petit_form_lead_created, consumes an
+ * attempt or calls Turnstile.
+ */
+function petit_form_handle_probe() {
+	$key = defined( 'PETIT_FORM_PROBE_KEY' ) ? PETIT_FORM_PROBE_KEY : '';
+	if ( ! is_string( $key ) || '' === $key ) {
+		wp_die( '', 404 );
+	}
+	$given = isset( $_SERVER['HTTP_X_PETIT_FORM_PROBE'] ) && is_string( $_SERVER['HTTP_X_PETIT_FORM_PROBE'] ) ? wp_unslash( $_SERVER['HTTP_X_PETIT_FORM_PROBE'] ) : '';
+	if ( ! hash_equals( $key, $given ) ) {
+		wp_send_json_error( null, 403 );
+	}
+	$checked = petit_form_probe_checks();
+	if ( is_wp_error( $checked ) ) {
+		wp_send_json_error( array( 'code' => $checked->get_error_code() ), 400 );
+	}
+	wp_send_json_success( array( 'ok' => true, 'turnstile' => 'skipped' ), 200 );
+}
+
+/**
+ * Steps 1-3 of petit_form_handle_submit, read from $_POST the same way.
+ * Keep both in sync when a check changes.
+ *
+ * @return true|WP_Error
+ */
+function petit_form_probe_checks() {
+	$form_id = isset( $_POST['pf_form_id'] ) && is_string( $_POST['pf_form_id'] ) ? substr( sanitize_key( wp_unslash( $_POST['pf_form_id'] ) ), 0, 64 ) : '';
+	$spec    = isset( $_POST['pf_fields'] ) && is_string( $_POST['pf_fields'] ) ? wp_unslash( $_POST['pf_fields'] ) : '';
+
+	if ( ! $form_id || ! isset( $_POST['pf_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['pf_nonce'] ) ), 'petit_form_submit_' . $form_id ) ) {
+		return new WP_Error( 'PF-E2001', 'Nonce missing or invalid.' );
+	}
+
+	$trap_post = array(
+		'pf_hp_x91' => isset( $_POST['pf_hp_x91'] ) && is_string( $_POST['pf_hp_x91'] ) ? wp_unslash( $_POST['pf_hp_x91'] ) : '',
+		'pf_ts'     => isset( $_POST['pf_ts'] ) && is_string( $_POST['pf_ts'] ) ? wp_unslash( $_POST['pf_ts'] ) : '',
+		'pf_sig'    => isset( $_POST['pf_sig'] ) && is_string( $_POST['pf_sig'] ) ? wp_unslash( $_POST['pf_sig'] ) : '',
+		'pf_fields' => $spec,
+	);
+	$traps = petit_form_verify_traps( $trap_post, $form_id );
+	if ( is_wp_error( $traps ) ) {
+		return $traps;
+	}
+
+	$fields = petit_form_parse_fields( $spec );
+	if ( empty( $fields ) ) {
+		return new WP_Error( 'PF-E1001', 'Invalid field definition.' );
+	}
+	foreach ( $fields as $field ) {
+		$raw   = isset( $_POST[ 'pf_f_' . $field['key'] ] ) && is_string( $_POST[ 'pf_f_' . $field['key'] ] ) ? wp_unslash( $_POST[ 'pf_f_' . $field['key'] ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+		$valid = petit_form_validate_value( $field, petit_form_sanitize_value( $raw, $field['type'] ) );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+	}
+	return true;
+}
+
+/**
  * Redirect helper: back to the originating page with a status query arg.
  */
 function petit_form_redirect_back( $url, $form_id, $error_code ) {

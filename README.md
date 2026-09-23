@@ -84,6 +84,7 @@ After the final failed attempt, automatic retries stop; the lead remains availab
 - The default quota is **10 locally valid attempts per IP and form per fixed UTC hour**, consumed atomically in the database before Turnstile. Local field-validation errors do not count; rejected CAPTCHA attempts and subsequent storage failures do. Settings allow 1–100 attempts per 60–86,400-second window. A burst can span two adjacent windows; this is not DDoS protection.
 - Turnstile is enabled only when both keys are configured. Invalid tokens and non-200 responses below 500 are rejected. Network errors and HTTP 5xx **fail open**, accepting within the local quota and logging PF-E2008.
 - SQL values are parameterized, rendered values are escaped, and admin read/export/delete operations require `manage_options`; exports and deletions also require nonces.
+- The monitoring probe (`action=petit_form_probe`, key in the `X-Petit-Form-Probe` header) exists only when `PETIT_FORM_PROBE_KEY` is defined in `wp-config.php`; it replays the submission checks but stores nothing and sends nothing.
 
 Check these deployment conditions:
 
