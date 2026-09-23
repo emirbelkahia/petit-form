@@ -17,54 +17,19 @@ if ( ! defined( 'ABSPATH' ) ) {
  * admin-post.php handler for every Petit Form submission.
  */
 function petit_form_handle_submit() {
-	$form_id = isset( $_POST['pf_form_id'] ) && is_string( $_POST['pf_form_id'] ) ? substr( sanitize_key( wp_unslash( $_POST['pf_form_id'] ) ), 0, 64 ) : '';
+	$form_id = petit_form_posted_form_id();
 	$back    = isset( $_POST['pf_back'] ) && is_string( $_POST['pf_back'] ) ? esc_url_raw( wp_unslash( $_POST['pf_back'] ) ) : '';
 	if ( '' === $back ) {
 		$back = home_url( '/' );
 	}
-	// The spec is signed as-is: unslash (WordPress magic-quotes $_POST) but
-	// never "sanitize" it — any byte difference invalidates the signature.
-	$spec = isset( $_POST['pf_fields'] ) && is_string( $_POST['pf_fields'] ) ? wp_unslash( $_POST['pf_fields'] ) : '';
 
-	// 1. WordPress nonce. Guests share a nonce; this is not proof of humanity.
-	if ( ! $form_id || ! isset( $_POST['pf_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['pf_nonce'] ) ), 'petit_form_submit_' . $form_id ) ) {
-		petit_form_log( 'PF-E2001', 'Nonce missing or invalid.' );
-		petit_form_redirect_back( $back, $form_id, 'PF-E2001' );
+	// 1-3. Nonce, traps and field validation, shared with the monitoring probe.
+	$checked = petit_form_check_submission( $form_id );
+	if ( is_wp_error( $checked ) ) {
+		petit_form_log( $checked->get_error_code(), $checked->get_error_message() );
+		petit_form_redirect_back( $back, $form_id, $checked->get_error_code() );
 	}
-
-	// 2. Honeypot + time-trap. Values are unslashed BEFORE the signature
-	//    check: an apostrophe in a field label must not break it.
-	$trap_post = array(
-		'pf_hp_x91'  => isset( $_POST['pf_hp_x91'] ) && is_string( $_POST['pf_hp_x91'] ) ? wp_unslash( $_POST['pf_hp_x91'] ) : '',
-		'pf_ts'      => isset( $_POST['pf_ts'] ) && is_string( $_POST['pf_ts'] ) ? wp_unslash( $_POST['pf_ts'] ) : '',
-		'pf_sig'     => isset( $_POST['pf_sig'] ) && is_string( $_POST['pf_sig'] ) ? wp_unslash( $_POST['pf_sig'] ) : '',
-		'pf_fields'  => $spec,
-	);
-	$traps = petit_form_verify_traps( $trap_post, $form_id );
-	if ( is_wp_error( $traps ) ) {
-		petit_form_log( $traps->get_error_code(), $traps->get_error_message() );
-		petit_form_redirect_back( $back, $form_id, $traps->get_error_code() );
-	}
-
-	// 3. Sanitize + validate every declared field. Unknown POST keys are ignored.
-	//    The spec is trustworthy: its integrity is proven by the time-trap
-	//    signature verified in step 2.
-	$fields = petit_form_parse_fields( $spec );
-	if ( empty( $fields ) ) {
-		petit_form_log( 'PF-E1001', 'Invalid field definition.' );
-		petit_form_redirect_back( $back, $form_id, 'PF-E1001' );
-	}
-	$values = array();
-	foreach ( $fields as $field ) {
-		$raw    = isset( $_POST[ 'pf_f_' . $field['key'] ] ) && is_string( $_POST[ 'pf_f_' . $field['key'] ] ) ? wp_unslash( $_POST[ 'pf_f_' . $field['key'] ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
-		$value  = petit_form_sanitize_value( $raw, $field['type'] );
-		$valid  = petit_form_validate_value( $field, $value );
-		if ( is_wp_error( $valid ) ) {
-			petit_form_log( $valid->get_error_code(), $valid->get_error_message() );
-			petit_form_redirect_back( $back, $form_id, $valid->get_error_code() );
-		}
-		$values[ $field['key'] ] = $value;
-	}
+	list( $fields, $values ) = $checked;
 
 	// 4. Consume an attempt before any external request. Local typos do not
 	// count; rejected CAPTCHA tokens do, so invalid tokens cannot flood HTTP.
@@ -103,6 +68,62 @@ function petit_form_handle_submit() {
 }
 
 /**
+ * Form identifier posted by a submission or a probe.
+ */
+function petit_form_posted_form_id() {
+	return isset( $_POST['pf_form_id'] ) && is_string( $_POST['pf_form_id'] ) ? substr( sanitize_key( wp_unslash( $_POST['pf_form_id'] ) ), 0, 64 ) : '';
+}
+
+/**
+ * Steps 1-3 of a submission, read from $_POST. Shared by the submit handler
+ * and the monitoring probe so both always apply the same checks.
+ *
+ * @return array|WP_Error Field definitions and sanitized values keyed by field key.
+ */
+function petit_form_check_submission( $form_id ) {
+	// The spec is signed as-is: unslash (WordPress magic-quotes $_POST) but
+	// never "sanitize" it — any byte difference invalidates the signature.
+	$spec = isset( $_POST['pf_fields'] ) && is_string( $_POST['pf_fields'] ) ? wp_unslash( $_POST['pf_fields'] ) : '';
+
+	// 1. WordPress nonce. Guests share a nonce; this is not proof of humanity.
+	if ( ! $form_id || ! isset( $_POST['pf_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['pf_nonce'] ) ), 'petit_form_submit_' . $form_id ) ) {
+		return new WP_Error( 'PF-E2001', 'Nonce missing or invalid.' );
+	}
+
+	// 2. Honeypot + time-trap. Values are unslashed BEFORE the signature
+	//    check: an apostrophe in a field label must not break it.
+	$trap_post = array(
+		'pf_hp_x91'  => isset( $_POST['pf_hp_x91'] ) && is_string( $_POST['pf_hp_x91'] ) ? wp_unslash( $_POST['pf_hp_x91'] ) : '',
+		'pf_ts'      => isset( $_POST['pf_ts'] ) && is_string( $_POST['pf_ts'] ) ? wp_unslash( $_POST['pf_ts'] ) : '',
+		'pf_sig'     => isset( $_POST['pf_sig'] ) && is_string( $_POST['pf_sig'] ) ? wp_unslash( $_POST['pf_sig'] ) : '',
+		'pf_fields'  => $spec,
+	);
+	$traps = petit_form_verify_traps( $trap_post, $form_id );
+	if ( is_wp_error( $traps ) ) {
+		return $traps;
+	}
+
+	// 3. Sanitize + validate every declared field. Unknown POST keys are ignored.
+	//    The spec is trustworthy: its integrity is proven by the time-trap
+	//    signature verified in step 2.
+	$fields = petit_form_parse_fields( $spec );
+	if ( empty( $fields ) ) {
+		return new WP_Error( 'PF-E1001', 'Invalid field definition.' );
+	}
+	$values = array();
+	foreach ( $fields as $field ) {
+		$raw    = isset( $_POST[ 'pf_f_' . $field['key'] ] ) && is_string( $_POST[ 'pf_f_' . $field['key'] ] ) ? wp_unslash( $_POST[ 'pf_f_' . $field['key'] ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+		$value  = petit_form_sanitize_value( $raw, $field['type'] );
+		$valid  = petit_form_validate_value( $field, $value );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+		$values[ $field['key'] ] = $value;
+	}
+	return array( $fields, $values );
+}
+
+/**
  * Refresh public form tokens without submitting or storing a lead.
  */
 function petit_form_handle_token_refresh() {
@@ -133,7 +154,7 @@ function petit_form_handle_probe() {
 	if ( ! hash_equals( $key, $given ) ) {
 		wp_send_json_error( null, 403 );
 	}
-	$checked = petit_form_probe_checks();
+	$checked = petit_form_check_submission( petit_form_posted_form_id() );
 	if ( is_wp_error( $checked ) ) {
 		wp_send_json_error( array( 'code' => $checked->get_error_code() ), 400 );
 	}
@@ -145,45 +166,6 @@ function petit_form_handle_probe() {
 		wp_send_json_error( array( 'code' => 'PF-E4003' ), 503 );
 	}
 	wp_send_json_success( array( 'ok' => true, 'turnstile' => 'skipped' ), 200 );
-}
-
-/**
- * Steps 1-3 of petit_form_handle_submit, read from $_POST the same way.
- * Keep both in sync when a check changes.
- *
- * @return true|WP_Error
- */
-function petit_form_probe_checks() {
-	$form_id = isset( $_POST['pf_form_id'] ) && is_string( $_POST['pf_form_id'] ) ? substr( sanitize_key( wp_unslash( $_POST['pf_form_id'] ) ), 0, 64 ) : '';
-	$spec    = isset( $_POST['pf_fields'] ) && is_string( $_POST['pf_fields'] ) ? wp_unslash( $_POST['pf_fields'] ) : '';
-
-	if ( ! $form_id || ! isset( $_POST['pf_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['pf_nonce'] ) ), 'petit_form_submit_' . $form_id ) ) {
-		return new WP_Error( 'PF-E2001', 'Nonce missing or invalid.' );
-	}
-
-	$trap_post = array(
-		'pf_hp_x91' => isset( $_POST['pf_hp_x91'] ) && is_string( $_POST['pf_hp_x91'] ) ? wp_unslash( $_POST['pf_hp_x91'] ) : '',
-		'pf_ts'     => isset( $_POST['pf_ts'] ) && is_string( $_POST['pf_ts'] ) ? wp_unslash( $_POST['pf_ts'] ) : '',
-		'pf_sig'    => isset( $_POST['pf_sig'] ) && is_string( $_POST['pf_sig'] ) ? wp_unslash( $_POST['pf_sig'] ) : '',
-		'pf_fields' => $spec,
-	);
-	$traps = petit_form_verify_traps( $trap_post, $form_id );
-	if ( is_wp_error( $traps ) ) {
-		return $traps;
-	}
-
-	$fields = petit_form_parse_fields( $spec );
-	if ( empty( $fields ) ) {
-		return new WP_Error( 'PF-E1001', 'Invalid field definition.' );
-	}
-	foreach ( $fields as $field ) {
-		$raw   = isset( $_POST[ 'pf_f_' . $field['key'] ] ) && is_string( $_POST[ 'pf_f_' . $field['key'] ] ) ? wp_unslash( $_POST[ 'pf_f_' . $field['key'] ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
-		$valid = petit_form_validate_value( $field, petit_form_sanitize_value( $raw, $field['type'] ) );
-		if ( is_wp_error( $valid ) ) {
-			return $valid;
-		}
-	}
-	return true;
 }
 
 /**
