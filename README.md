@@ -84,7 +84,7 @@ After the final failed attempt, automatic retries stop; the lead remains availab
 - The default quota is **10 locally valid attempts per IP and form per fixed UTC hour**, consumed atomically in the database before Turnstile. Local field-validation errors do not count; rejected CAPTCHA attempts and subsequent storage failures do. Settings allow 1–100 attempts per 60–86,400-second window. A burst can span two adjacent windows; this is not DDoS protection.
 - Turnstile is enabled only when both keys are configured. Invalid tokens and non-200 responses below 500 are rejected. Network errors and HTTP 5xx **fail open**, accepting within the local quota and logging PF-E2008.
 - SQL values are parameterized, rendered values are escaped, and admin read/export/delete operations require `manage_options`; exports and deletions also require nonces.
-- The monitoring probe (`action=petit_form_probe`, key in the `X-Petit-Form-Probe` header) exists only when `PETIT_FORM_PROBE_KEY` is defined in `wp-config.php`; it replays the submission checks but stores nothing and sends nothing.
+- The monitoring probe exists only when `PETIT_FORM_PROBE_KEY` is defined in `wp-config.php`; it replays the submission checks but stores nothing and sends nothing (see Monitoring probe).
 
 Check these deployment conditions:
 
@@ -144,6 +144,25 @@ Rejections show a friendly message and a stable code. PHP logs include codes, te
 | PF-E4002 | Notification scheduling, data or progress failure |
 | PF-E4003 | Notification task missing or over 15 minutes overdue; administrator warning |
 | PF-E4101 | Webhook request failed or returned a non-2xx status |
+
+## Monitoring probe
+
+An uptime monitor can check that a form still accepts submissions without creating a lead. The probe is off unless `wp-config.php` defines a key:
+
+```php
+define( 'PETIT_FORM_PROBE_KEY', 'a-long-random-value' );
+```
+
+For each check, load the form page as an anonymous visitor and keep the rendered hidden fields (`pf_form_id`, `pf_nonce`, `pf_fields`, `pf_ts`, `pf_sig` and the empty `pf_hp_x91`). Add a valid value for every `pf_f_*` field and wait at least the minimum fill time. Then POST everything to `/wp-admin/admin-post.php` with `action=petit_form_probe`, without cookies, and send the key in the `X-Petit-Form-Probe` header.
+
+| HTTP | Body | Meaning |
+|---|---|---|
+| 200 | `{"success":true,"data":{"ok":true,"turnstile":"skipped"}}` | A real submission with this data would pass the local checks |
+| 400 | `{"success":false,"data":{"code":"PF-E2001"}}` | A check failed; the code is the one a real submission would show (see Diagnostics) |
+| 403 | `{"success":false}` | Missing or wrong key |
+| 404 | WordPress error page | `PETIT_FORM_PROBE_KEY` is not defined or is empty |
+
+The probe runs the nonce, honeypot, signed time-trap and field validation steps of a real submission, then stops. It stores no lead, queues no notification, does not fire `petit_form_lead_created`, does not consume the attempt quota and never calls Turnstile. A 200 therefore does not prove that Turnstile, storage or delivery work. Wrong keys are not rate-limited: use a long random value and keep it out of version control.
 
 ## Development
 
