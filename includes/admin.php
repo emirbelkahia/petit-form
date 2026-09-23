@@ -306,23 +306,37 @@ function petit_form_settings_page() {
 }
 
 /**
+ * Persistent health warnings stay on Dashboard, Leads and Settings.
+ */
+function petit_form_admin_health_notice_screen() {
+	global $pagenow;
+	$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+	if ( 'index.php' === $pagenow ) {
+		return true;
+	}
+	return 'admin.php' === $pagenow && in_array( $page, array( 'petit-form-leads', 'petit-form-settings' ), true );
+}
+
+/**
  * Persistent storage/cron warnings and one-shot notices from redirect URLs.
  */
 function petit_form_admin_notices() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
 	}
-	if ( get_option( 'petit_form_storage_error' ) ) {
-		echo '<div class="notice notice-error"><p>' . esc_html__( 'Petit Form could not write to its leads table. Check database permissions and the PHP error log (PF-E3001/PF-E3002).', 'petit-form' ) . '</p></div>';
-	}
-	// A disabled visit trigger is valid when a host scheduler runs WP-Cron.
-	$next = wp_next_scheduled( 'petit_form_deliver_pending' );
-	if ( false === $next || $next < time() - 15 * MINUTE_IN_SECONDS ) {
-		$message = false === $next
-			? __( 'Petit Form notification task is missing (PF-E4003). Saved leads remain available.', 'petit-form' )
-			: __( 'Petit Form notification task is more than 15 minutes late (PF-E4003). Saved leads remain available; notifications may be delayed.', 'petit-form' );
-		echo '<div class="notice notice-warning"><p>' . esc_html( $message ) . '</p><p>'
-			. esc_html__( 'Ask your host to check WP-Cron and run WordPress cron every minute. If DISABLE_WP_CRON is enabled, an external scheduler is required.', 'petit-form' ) . '</p></div>';
+	if ( petit_form_admin_health_notice_screen() ) {
+		if ( get_option( 'petit_form_storage_error' ) ) {
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'Petit Form could not write to its leads table. Check database permissions and the PHP error log (PF-E3001/PF-E3002).', 'petit-form' ) . '</p></div>';
+		}
+		// A disabled visit trigger is valid when a host scheduler runs WP-Cron.
+		$next = wp_next_scheduled( 'petit_form_deliver_pending' );
+		if ( false === $next || $next < time() - 15 * MINUTE_IN_SECONDS ) {
+			$message = false === $next
+				? __( 'Petit Form notification task is missing (PF-E4003). Saved leads remain available.', 'petit-form' )
+				: __( 'Petit Form notification task is more than 15 minutes late (PF-E4003). Saved leads remain available; notifications may be delayed.', 'petit-form' );
+			echo '<div class="notice notice-warning"><p>' . esc_html( $message ) . '</p><p>'
+				. esc_html__( 'Ask your host to check WP-Cron and run WordPress cron every minute. If DISABLE_WP_CRON is enabled, an external scheduler is required.', 'petit-form' ) . '</p></div>';
+		}
 	}
 	if ( ! isset( $_GET['pf_notice'] ) ) {
 		return;

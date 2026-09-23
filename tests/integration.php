@@ -396,7 +396,10 @@ check( is_int( $id ) && 'Emoji 📩' === json_decode( $wpdb->get_var( "SELECT da
 petit_form_schedule_delivery();
 check( false !== wp_next_scheduled( 'petit_form_deliver_pending' ), 'Delivery schedule exists' );
 // Diagnose cron from its schedule, including sites using an external scheduler.
-function cron_notice() {
+function cron_notice( $screen = 'index.php', $page = '' ) {
+	global $pagenow;
+	$pagenow = $screen;
+	$_GET = '' === $page ? array() : array( 'page' => $page );
 	ob_start();
 	petit_form_admin_notices();
 	return ob_get_clean();
@@ -409,6 +412,8 @@ wp_clear_scheduled_hook( 'petit_form_deliver_pending' );
 wp_schedule_event( time() - 16 * MINUTE_IN_SECONDS, 'petit_form_minute', 'petit_form_deliver_pending' );
 $notice = cron_notice();
 check( false !== strpos( $notice, 'PF-E4003' ) && false !== strpos( $notice, 'more than 15 minutes late' ) && false !== strpos( $notice, 'Ask your host' ), 'An overdue task shows an actionable administrator warning' );
+check( false === strpos( cron_notice( 'admin.php', 'wpfastestcacheoptions' ), 'PF-E4003' ), 'Cron warning stays off unrelated plugin screens' );
+check( false !== strpos( cron_notice( 'admin.php', 'petit-form-leads' ), 'PF-E4003' ), 'Cron warning shows on the leads screen' );
 wp_set_current_user( 0 );
 check( '' === cron_notice(), 'Cron diagnostics are hidden from visitors' );
 wp_set_current_user( 1 );
